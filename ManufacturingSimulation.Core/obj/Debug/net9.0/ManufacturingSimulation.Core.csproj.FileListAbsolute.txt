@@ -1,0 +1,11 @@
+c:\ManufacturingSimulation\ManufacturingSimulation.Core\bin\Debug\net9.0\ManufacturingSimulation.Core.deps.json
+c:\ManufacturingSimulation\ManufacturingSimulation.Core\bin\Debug\net9.0\ManufacturingSimulation.Core.dll
+c:\ManufacturingSimulation\ManufacturingSimulation.Core\bin\Debug\net9.0\ManufacturingSimulation.Core.pdb
+c:\ManufacturingSimulation\ManufacturingSimulation.Core\obj\Debug\net9.0\ManufacturingSimulation.Core.GeneratedMSBuildEditorConfig.editorconfig
+c:\ManufacturingSimulation\ManufacturingSimulation.Core\obj\Debug\net9.0\ManufacturingSimulation.Core.AssemblyInfoInputs.cache
+c:\ManufacturingSimulation\ManufacturingSimulation.Core\obj\Debug\net9.0\ManufacturingSimulation.Core.AssemblyInfo.cs
+c:\ManufacturingSimulation\ManufacturingSimulation.Core\obj\Debug\net9.0\ManufacturingSimulation.Core.csproj.CoreCompileInputs.cache
+c:\ManufacturingSimulation\ManufacturingSimulation.Core\obj\Debug\net9.0\ManufacturingSimulation.Core.dll
+c:\ManufacturingSimulation\ManufacturingSimulation.Core\obj\Debug\net9.0\refint\ManufacturingSimulation.Core.dll
+c:\ManufacturingSimulation\ManufacturingSimulation.Core\obj\Debug\net9.0\ManufacturingSimulation.Core.pdb
+c:\ManufacturingSimulation\ManufacturingSimulation.Core\obj\Debug\net9.0\ref\ManufacturingSimulation.Core.dll
