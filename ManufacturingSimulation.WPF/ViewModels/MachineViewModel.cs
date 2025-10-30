@@ -1,7 +1,8 @@
-﻿using ManufacturingSimulation.Core.Models;
+using ManufacturingSimulation.Core.Models;
+using ManufacturingSimulation.Core.Engine.Rules;
 using System.Collections.ObjectModel;
 using System.Windows.Media;
-using MachineBuffer = ManufacturingSimulation.Core.Models.Buffer;  // Add this line
+using MachineBuffer = ManufacturingSimulation.Core.Models.Buffer;
 
 namespace ManufacturingSimulation.WPF.ViewModels
 {
@@ -12,11 +13,15 @@ namespace ManufacturingSimulation.WPF.ViewModels
         private string? _currentPartId;
         private double _progressPercent;
         private int _bufferCount;
+        private double _utilization;
 
         public MachineViewModel(Machine model)
         {
             _model = model;
             _state = model.State;
+            
+            AvailableRules = new ObservableCollection<string>(DispatchingRuleManager.GetRuleNames());
+            SelectedRule = model.DispatchingRule.Name;
             Parts = new ObservableCollection<string>();
         }
 
@@ -25,14 +30,7 @@ namespace ManufacturingSimulation.WPF.ViewModels
         public MachineState State
         {
             get => _state;
-            set
-            {
-                if (SetProperty(ref _state, value))
-                {
-                    OnPropertyChanged(nameof(StatusColor));
-                    OnPropertyChanged(nameof(StateText));
-                }
-            }
+            set => SetProperty(ref _state, value);
         }
 
         public string? CurrentPartId
@@ -53,50 +51,69 @@ namespace ManufacturingSimulation.WPF.ViewModels
             set => SetProperty(ref _bufferCount, value);
         }
 
+        public double Utilization
+        {
+            get => _utilization;
+            set => SetProperty(ref _utilization, value);
+        }
+
+        public ObservableCollection<string> AvailableRules { get; }
+
+        public string SelectedRule
+        {
+            get => _model.DispatchingRule.Name;
+            set
+            {
+                if (_model.DispatchingRule.Name != value)
+                {
+                    _model.DispatchingRule = DispatchingRuleManager.GetRuleByName(value);
+                    OnPropertyChanged();
+                }
+            }
+        }
+
         public ObservableCollection<string> Parts { get; }
 
         public SolidColorBrush StatusColor => State switch
         {
-            MachineState.Busy => Brushes.LimeGreen,
-            MachineState.Blocked => Brushes.Red,
-            MachineState.Starved => Brushes.Orange,
-            MachineState.Idle => Brushes.Gray,
-            _ => Brushes.Gray
+            MachineState.Idle => new SolidColorBrush(Colors.Gray),
+            MachineState.Busy => new SolidColorBrush(Colors.Green),
+            MachineState.Blocked => new SolidColorBrush(Colors.Red),
+            MachineState.Starved => new SolidColorBrush(Colors.Orange),
+            _ => new SolidColorBrush(Colors.Gray)
         };
 
         public string StateText => State switch
         {
+            MachineState.Idle => "IDLE",
             MachineState.Busy => "BUSY",
             MachineState.Blocked => "BLOCKED",
             MachineState.Starved => "STARVED",
-            MachineState.Idle => "IDLE",
             _ => "UNKNOWN"
         };
 
         public int PartsCompleted => _model.PartsCompleted;
 
-        public void UpdateFromModel(MachineBuffer buffer, double currentTime)
+        public void UpdateFromModel(MachineBuffer buffer, double currentTime, MachineStatistics? machineStats)
         {
             State = _model.State;
             CurrentPartId = _model.CurrentPart?.Id;
+            ProgressPercent = _model.State == MachineState.Busy ? _model.GetProcessingProgress(currentTime) * 100 : 0;
             BufferCount = buffer.Count;
-            
-            if (_model.State == MachineState.Busy)
+
+            if (machineStats != null)
             {
-                ProgressPercent = _model.GetProcessingProgress(currentTime);
-            }
-            else
-            {
-                ProgressPercent = 0;
+                Utilization = machineStats.Utilization;
             }
 
-            // Update parts in buffer
             Parts.Clear();
             foreach (var part in buffer.Parts)
             {
                 Parts.Add(part.Id);
             }
 
+            OnPropertyChanged(nameof(StatusColor));
+            OnPropertyChanged(nameof(StateText));
             OnPropertyChanged(nameof(PartsCompleted));
         }
     }

@@ -8,7 +8,7 @@
         public int CurrentWIP { get; set; }  // Work in Progress
         public double AverageFlowTime { get; set; }
         public double Throughput { get; set; }  // Parts per time unit
-        
+
         public Dictionary<int, MachineStatistics> MachineStats { get; set; }
 
         public SimulationStatistics()

@@ -1,5 +1,5 @@
 ﻿using ManufacturingSimulation.Core.Models;
-using ManufacturingSimulation.Core.SimulationEngine;  // Add this line
+using ManufacturingSimulation.Core.Engine;  // Add this line
 using PartBuffer = ManufacturingSimulation.Core.Models.Buffer;
 
 namespace ManufacturingSimulation.Console
