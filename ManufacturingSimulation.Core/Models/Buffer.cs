@@ -22,6 +22,13 @@ namespace ManufacturingSimulation.Core.Models
         public int Count => Parts.Count;
         public double Utilization => (double)Parts.Count / Capacity;
 
+        // BACKWARD COMPATIBLE: overload without currentTime parameter
+        public bool TryAdd(Part part)
+        {
+            return TryAdd(part, 0.0);
+        }
+
+        // New version with currentTime tracking
         public bool TryAdd(Part part, double currentTime)
         {
             if (IsFull) return false;

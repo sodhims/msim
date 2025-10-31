@@ -1,0 +1,320 @@
+<Window x:Class="ManufacturingSimulation.ConfigurationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:ManufacturingSimulation"
+        Title="Simulation Configuration"
+        Height="700"
+        Width="900"
+        WindowStartupLocation="CenterScreen"
+        Background="#F5F5F5">
+    
+    <Window.Resources>
+        <!-- Style for group boxes -->
+        <Style TargetType="GroupBox">
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="Padding" Value="10"/>
+            <Setter Property="BorderBrush" Value="#CCCCCC"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="White"/>
+        </Style>
+
+        <!-- Style for labels -->
+        <Style TargetType="TextBlock">
+            <Setter Property="Margin" Value="5,5,10,5"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- Style for textboxes -->
+        <Style TargetType="TextBox">
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="MinWidth" Value="100"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <!-- Style for comboboxes -->
+        <Style TargetType="ComboBox">
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="MinWidth" Value="150"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <!-- Style for buttons -->
+        <Style TargetType="Button">
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="MinWidth" Value="100"/>
+            <Setter Property="Background" Value="#007ACC"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#005A9E"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Title Bar -->
+        <Border Grid.Row="0" 
+                Background="#007ACC" 
+                Padding="15,10">
+            <StackPanel>
+                <TextBlock Text="Manufacturing Simulation Configuration"
+                          FontSize="20"
+                          FontWeight="Bold"
+                          Foreground="White"/>
+                <TextBlock Text="Configure simulation parameters, distributions, and machine settings"
+                          FontSize="12"
+                          Foreground="WhiteSmoke"
+                          Margin="0,5,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Main Content -->
+        <ScrollViewer Grid.Row="1" 
+                     VerticalScrollBarVisibility="Auto"
+                     Padding="10">
+            <StackPanel>
+                
+                <!-- File Operations -->
+                <GroupBox Header="Configuration File">
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="💾 Save Configuration" 
+                                Command="{Binding SaveConfigCommand}"
+                                ToolTip="Save current configuration to JSON file"/>
+                        <Button Content="📂 Load Configuration" 
+                                Command="{Binding LoadConfigCommand}"
+                                ToolTip="Load configuration from JSON file"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- Global Settings -->
+                <GroupBox Header="Global Settings">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Number of Machines:"/>
+                        <TextBox Grid.Row="0" Grid.Column="1" 
+                                Text="{Binding NumMachines, UpdateSourceTrigger=PropertyChanged}"
+                                ToolTip="Number of machines in the production line (1-20)"/>
+
+                        <TextBlock Grid.Row="0" Grid.Column="2" Text="Buffer Capacity:"/>
+                        <TextBox Grid.Row="0" Grid.Column="3" 
+                                Text="{Binding BufferCapacity, UpdateSourceTrigger=PropertyChanged}"
+                                ToolTip="Maximum number of parts each buffer can hold"/>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Mean Arrival Time:"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" 
+                                Text="{Binding MeanArrivalTime, UpdateSourceTrigger=PropertyChanged}"
+                                ToolTip="Average time between part arrivals"/>
+
+                        <TextBlock Grid.Row="1" Grid.Column="2" Text="Arrival Distribution:"/>
+                        <ComboBox Grid.Row="1" Grid.Column="3"
+                                 ItemsSource="{Binding DistributionTypes}"
+                                 SelectedItem="{Binding SelectedDistribution}"
+                                 ToolTip="Probability distribution for part arrivals"/>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Dispatch Rule:"/>
+                        <ComboBox Grid.Row="2" Grid.Column="1"
+                                 ItemsSource="{Binding DispatchRules}"
+                                 SelectedItem="{Binding SelectedDispatchRule}"
+                                 ToolTip="Rule for selecting next part to process"/>
+
+                        <TextBlock Grid.Row="2" Grid.Column="2" Text="Simulation Duration:"/>
+                        <TextBox Grid.Row="2" Grid.Column="3" 
+                                Text="{Binding SimulationDuration, UpdateSourceTrigger=PropertyChanged}"
+                                ToolTip="Total simulation time units"/>
+                    </Grid>
+                </GroupBox>
+
+                <!-- Per-Machine Configuration -->
+                <GroupBox Header="Per-Machine Configuration">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Machine Selector -->
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="5">
+                            <TextBlock Text="Select Machine:" FontWeight="Bold"/>
+                            <ComboBox ItemsSource="{Binding MachineConfigs}"
+                                     SelectedItem="{Binding SelectedMachine}"
+                                     DisplayMemberPath="MachineId"
+                                     MinWidth="100"
+                                     ToolTip="Select a machine to configure"/>
+                            <Button Content="Apply to All Machines"
+                                   Command="{Binding ApplyToAllMachinesCommand}"
+                                   ToolTip="Apply current machine settings to all machines"
+                                   Margin="20,5,5,5"/>
+                        </StackPanel>
+
+                        <!-- Machine Settings -->
+                        <Border Grid.Row="1" 
+                               BorderBrush="#DDDDDD" 
+                               BorderThickness="1"
+                               Background="#FAFAFA"
+                               Padding="10"
+                               Margin="5">
+                            <Grid DataContext="{Binding SelectedMachine}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" 
+                                          Text="Processing Distribution:"
+                                          FontWeight="SemiBold"/>
+                                <ComboBox Grid.Row="0" Grid.Column="1"
+                                         ItemsSource="{Binding AvailableDistributions}"
+                                         SelectedItem="{Binding ProcessingDistribution}"
+                                         ToolTip="Distribution type for processing times"/>
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" 
+                                          Text="Mean Processing Time:"
+                                          FontWeight="SemiBold"/>
+                                <TextBox Grid.Row="1" Grid.Column="1"
+                                        Text="{Binding MeanProcessingTime, UpdateSourceTrigger=PropertyChanged}"
+                                        ToolTip="Average time to process one part"/>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0"
+                                          Text="{Binding Param1Label}"
+                                          FontWeight="SemiBold"
+                                          Visibility="{Binding ShowParam1, Converter={StaticResource BoolToVisConverter}}"/>
+                                <TextBox Grid.Row="2" Grid.Column="1"
+                                        Text="{Binding DistributionParam1, UpdateSourceTrigger=PropertyChanged}"
+                                        Visibility="{Binding ShowParam1, Converter={StaticResource BoolToVisConverter}}"
+                                        ToolTip="First distribution parameter"/>
+
+                                <TextBlock Grid.Row="3" Grid.Column="0"
+                                          Text="{Binding Param2Label}"
+                                          FontWeight="SemiBold"
+                                          Visibility="{Binding ShowParam2, Converter={StaticResource BoolToVisConverter}}"/>
+                                <TextBox Grid.Row="3" Grid.Column="1"
+                                        Text="{Binding DistributionParam2, UpdateSourceTrigger=PropertyChanged}"
+                                        Visibility="{Binding ShowParam2, Converter={StaticResource BoolToVisConverter}}"
+                                        ToolTip="Second distribution parameter"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </GroupBox>
+
+                <!-- Buffer Status Indicators -->
+                <GroupBox Header="Buffer Status Indicators (Live View)">
+                    <TextBlock Text="Buffer status indicators will appear here during simulation"
+                              FontStyle="Italic"
+                              Foreground="Gray"
+                              TextAlignment="Center"
+                              Margin="10"/>
+                    <!-- Note: Actual buffer indicators should be added dynamically during simulation -->
+                </GroupBox>
+
+                <!-- Distribution Reference -->
+                <Expander Header="📊 Distribution Reference" 
+                         IsExpanded="False"
+                         Margin="5">
+                    <Border BorderBrush="#DDDDDD" 
+                           BorderThickness="1"
+                           Background="White"
+                           Padding="10">
+                        <StackPanel>
+                            <TextBlock TextWrapping="Wrap" FontWeight="Bold" Text="Available Distributions:"/>
+                            <TextBlock TextWrapping="Wrap" Margin="10,5,0,0">
+                                <Run FontWeight="SemiBold">Exponential:</Run> Memoryless, good for random arrivals. Only uses mean.
+                            </TextBlock>
+                            <TextBlock TextWrapping="Wrap" Margin="10,5,0,0">
+                                <Run FontWeight="SemiBold">Normal:</Run> Bell curve, symmetric. Param1 = Std Dev.
+                            </TextBlock>
+                            <TextBlock TextWrapping="Wrap" Margin="10,5,0,0">
+                                <Run FontWeight="SemiBold">Uniform:</Run> Equal probability. Param1 = Min, Param2 = Max.
+                            </TextBlock>
+                            <TextBlock TextWrapping="Wrap" Margin="10,5,0,0">
+                                <Run FontWeight="SemiBold">Triangular:</Run> Peak at mode. Param1 = Min, Param2 = Mode.
+                            </TextBlock>
+                            <TextBlock TextWrapping="Wrap" Margin="10,5,0,0">
+                                <Run FontWeight="SemiBold">LogNormal:</Run> Skewed right. Param1 = Std Dev of log.
+                            </TextBlock>
+                            <TextBlock TextWrapping="Wrap" Margin="10,5,0,0">
+                                <Run FontWeight="SemiBold">Gamma:</Run> Flexible shape. Param1 = Shape (k), Param2 = Scale (θ).
+                            </TextBlock>
+                            <TextBlock TextWrapping="Wrap" Margin="10,5,0,0">
+                                <Run FontWeight="SemiBold">Weibull:</Run> Reliability analysis. Param1 = Shape (k), Param2 = Scale (λ).
+                            </TextBlock>
+                        </StackPanel>
+                    </Border>
+                </Expander>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Action Buttons -->
+        <Border Grid.Row="2" 
+                Background="White" 
+                BorderBrush="#CCCCCC" 
+                BorderThickness="0,1,0,0"
+                Padding="10">
+            <StackPanel Orientation="Horizontal" 
+                       HorizontalAlignment="Right">
+                <Button Content="✓ Apply" 
+                       x:Name="ApplyButton"
+                       Click="ApplyButton_Click"
+                       ToolTip="Apply configuration and close window"/>
+                <Button Content="✗ Cancel" 
+                       x:Name="CancelButton"
+                       Click="CancelButton_Click"
+                       Background="#6C757D"
+                       ToolTip="Cancel and close without applying changes">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                            <Setter Property="Background" Value="#6C757D"/>
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#5A6268"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>
