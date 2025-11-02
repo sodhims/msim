@@ -36,12 +36,12 @@ namespace ManufacturingSimulation.WPF.ViewModels
             EventLog = new ObservableCollection<string>();
 
             // Commands
-            StartCommand = new RelayCommand(_ => Start(), _ => !IsRunning);
-            PauseCommand = new RelayCommand(_ => Pause(), _ => IsRunning);
-            ResetCommand = new RelayCommand(_ => Reset());
-            LoadConfigCommand = new RelayCommand(_ => LoadConfiguration());
-            SaveConfigCommand = new RelayCommand(_ => SaveConfiguration());
-            ClearLogCommand = new RelayCommand(_ => EventLog.Clear());
+            StartCommand = new RelayCommand(() => Start());
+            PauseCommand = new RelayCommand(() => Pause());
+            ResetCommand = new RelayCommand(() => Reset());
+            LoadConfigCommand = new RelayCommand(() => LoadConfiguration());
+            SaveConfigCommand = new RelayCommand(()=> SaveConfiguration());
+            ClearLogCommand = new RelayCommand(() => EventLog.Clear());
 
             // Timer for UI updates
             _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
