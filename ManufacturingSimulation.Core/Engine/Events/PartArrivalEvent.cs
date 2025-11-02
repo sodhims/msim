@@ -1,3 +1,4 @@
+using ManufacturingSimulation.Core;
 using ManufacturingSimulation.Core.Models;
 
 namespace ManufacturingSimulation.Core.Engine.Events
@@ -11,7 +12,7 @@ namespace ManufacturingSimulation.Core.Engine.Events
             Part = part;
         }
 
-        public override void Execute(SimulationEngine engine)
+        public override void Execute(ManufacturingSimulation.Core.SimulationEngine engine)
         {
             engine.HandlePartArrival(Part);
         }

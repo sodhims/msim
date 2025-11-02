@@ -1,3 +1,4 @@
+using ManufacturingSimulation.Core;
 namespace ManufacturingSimulation.Core.Engine
 {
     public abstract class SimulationEvent : IComparable<SimulationEvent>
@@ -10,7 +11,7 @@ namespace ManufacturingSimulation.Core.Engine
             ScheduledTime = scheduledTime;
         }
 
-        public abstract void Execute(SimulationEngine engine);
+        public abstract void Execute(ManufacturingSimulation.Core.SimulationEngine engine);
 
         public int CompareTo(SimulationEvent? other)
         {

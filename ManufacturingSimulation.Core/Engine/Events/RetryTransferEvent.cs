@@ -1,3 +1,4 @@
+using ManufacturingSimulation.Core;
 using ManufacturingSimulation.Core.Models;
 
 namespace ManufacturingSimulation.Core.Engine.Events
@@ -15,7 +16,7 @@ namespace ManufacturingSimulation.Core.Engine.Events
             TargetMachineId = targetMachineId;
         }
 
-        public override void Execute(SimulationEngine engine)
+        public override void Execute(ManufacturingSimulation.Core.SimulationEngine engine)
         {
             engine.HandleRetryTransfer(BlockedMachine, Part, TargetMachineId);
         }

@@ -1,3 +1,4 @@
+using ManufacturingSimulation.Core;
 namespace ManufacturingSimulation.Core.Engine
 {
     public class EventScheduler

@@ -19,13 +19,14 @@ namespace ManufacturingSimulation.Bridge
     {
         private readonly SimulationRepository _repository;
         private readonly MesToSimulationMapper _mapper;
+        private readonly MesDbContext _db;
 
         public SimulationService(MesDbContext context)
         {
+            _db = context;  // ADD THIS
             _repository = new SimulationRepository(context);
             _mapper = new MesToSimulationMapper();
         }
-
         public SimulationService(SimulationRepository repository)
         {
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
@@ -70,6 +71,8 @@ namespace ManufacturingSimulation.Bridge
 
                 // 4. Build simulation engine
                 var engine = new SimulationEngine(scenario.RandomSeed);
+                var logger = new SimulationEventLogger(runId, _db);
+                engine.SetEventLogger(logger);
 
                 // 5. Add machines (work centers)
                 foreach (var wc in workCenters)
@@ -91,7 +94,7 @@ namespace ManufacturingSimulation.Bridge
                         engine.SchedulePartArrival(part, part.ArrivalTime);
                         allParts.Add(part);
                     }
-                    
+
                     // Small delay between orders
                     currentTime += 0.5;
                 }
@@ -123,10 +126,10 @@ namespace ManufacturingSimulation.Bridge
             catch (Exception ex)
             {
                 stopwatch.Stop();
-                
+
                 if (runId > 0)
                 {
-                    _repository.UpdateRunStatus(runId, "Failed", 
+                    _repository.UpdateRunStatus(runId, "Failed",
                         stopwatch.Elapsed.TotalSeconds, ex.Message);
                 }
 
@@ -168,16 +171,25 @@ namespace ManufacturingSimulation.Bridge
         public SimulationRunResult QuickRun(
             int studentId,
             List<int> orderIds,
-            double durationHours = 168.0,
-            int randomSeed = 42)
+            double durationHours,
+            int randomSeed,
+            string dispatchRule = "FIFO",
+            int numMachines = 5,
+            int bufferCapacity = 10)
         {
             // Create temporary scenario
             var scenario = new SimulationScenario
             {
                 StudentId = studentId,
-                ScenarioName = $"Quick Run {DateTime.Now:yyyy-MM-dd HH:mm}",
+                ScenarioName = $"Quick Run {DateTime.Now:yyyy-MM-dd HH:mm} | {dispatchRule} | {numMachines} machines",
                 SimulationDurationHours = durationHours,
-                RandomSeed = randomSeed
+                RandomSeed = randomSeed,
+                //Configuration = JsonSerializer.Serialize(new
+                //{
+                //    DispatchRule = dispatchRule,
+                //    NumMachines = numMachines,
+                //    BufferCapacity = bufferCapacity
+                //})
             };
 
             int scenarioId = _repository.CreateScenario(scenario);
@@ -241,6 +253,8 @@ namespace ManufacturingSimulation.Bridge
         /// <summary>
         /// Get all runs for a scenario
         /// </summary>
+        /// 
+
         public List<SimulationRun> GetScenarioRuns(int scenarioId)
         {
             return _repository.GetRunsForScenario(scenarioId);
@@ -286,6 +300,7 @@ namespace ManufacturingSimulation.Bridge
         public SimulationRunSummary BestThroughput { get; set; }
         public SimulationRunSummary BestFlowTime { get; set; }
         public SimulationRunSummary BestUtilization { get; set; }
+
     }
 
     #endregion

@@ -1,3 +1,4 @@
+using ManufacturingSimulation.Core;
 using ManufacturingSimulation.Core.Models;
 using System.Collections.Generic;
 

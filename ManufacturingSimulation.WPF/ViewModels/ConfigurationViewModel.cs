@@ -10,6 +10,7 @@ using System.Text.Json.Serialization;
 using System.Windows;
 using System.Windows.Input;
 
+
 namespace ManufacturingSimulation.WPF.ViewModels
 {
     /// <summary>

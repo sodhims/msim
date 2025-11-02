@@ -1,4 +1,3 @@
-using ManufacturingSimulation.Core.Logging;
 using ManufacturingSimulation.Core.Models;
 using ManufacturingSimulation.Core.Engine;
 using ManufacturingSimulation.Core.Engine.Events;
@@ -22,7 +21,8 @@ namespace ManufacturingSimulation.Core
         // NEW: Distribution support
         private IDistribution? _processingTimeDistribution;
 
-        public SimulationLogger Logger { get; }
+        private ISimulationEventLogger? _eventLogger;
+
         public List<Machine> Machines { get; }
         public Dictionary<int, MachineBuffer> Buffers { get; }
         public double CurrentTime => _currentTime;
@@ -40,7 +40,6 @@ namespace ManufacturingSimulation.Core
             _totalPartsCompleted = 0;
             _completedParts = new List<Part>();
             _machineBusyTime = new Dictionary<int, double>();
-            Logger = new SimulationLogger();
 
             // Set processing distribution (default to Uniform[2,6])
             _processingTimeDistribution = processingDistribution ?? new UniformDistribution(2.0, 6.0);
@@ -58,6 +57,11 @@ namespace ManufacturingSimulation.Core
             {
                 _debugLog = null; // Silently fail if can't create debug log
             }
+        }
+
+        public void SetEventLogger(ISimulationEventLogger logger)
+        {
+            _eventLogger = logger;
         }
 
         public void SetProcessingDistribution(IDistribution distribution)
@@ -78,7 +82,7 @@ namespace ManufacturingSimulation.Core
 
         public void SchedulePartArrival(Part part, double arrivalTime)
         {
-            Logger.LogPartCreated(part);
+            _eventLogger?.LogPartArrival(arrivalTime, part.Id, part.Id);
             _scheduler.ScheduleEvent(new PartArrivalEvent(arrivalTime, part));
         }
 
@@ -95,6 +99,9 @@ namespace ManufacturingSimulation.Core
                 EventProcessed?.Invoke(this, nextEvent);
             }
             IsRunning = false;
+
+            // Flush event logger
+            _eventLogger?.Flush();
         }
 
         public void HandlePartArrival(Part part)
@@ -105,7 +112,6 @@ namespace ManufacturingSimulation.Core
 
             Debug($"=== {part.Id} ARRIVES at Machine {firstMachineId} buffer ===");
 
-            Logger.LogPartArrival(_currentTime, part, firstMachineId);
             bool added = buffer.TryAdd(part, _currentTime);
             if (!added)
             {
@@ -116,6 +122,7 @@ namespace ManufacturingSimulation.Core
             Debug($"    Buffer now: {buffer.Count}/{buffer.Capacity}");
 
             var machine = Machines.First(m => m.Id == firstMachineId);
+            _eventLogger?.LogQueueEntry(_currentTime, part.Id, part.Id, machine.Name, buffer.Count);
             TryStartProcessing(machine);
         }
 
@@ -124,7 +131,9 @@ namespace ManufacturingSimulation.Core
             Debug($"*** {part.Id} COMPLETED on {machine.Name} ***");
 
             TrackMachineBusyTime(machine, machine.ProcessingStartTime, _currentTime);
-            Logger.LogPartProcessingComplete(_currentTime, machine, part);
+
+            double processingTime = _currentTime - machine.ProcessingStartTime;
+            _eventLogger?.LogProcessingEnd(_currentTime, part.Id, part.Id, machine.Name, processingTime);
 
             part.MoveToNextOperation();
             Debug($"    Moved to operation {part.CurrentOperationIndex}");
@@ -144,7 +153,6 @@ namespace ManufacturingSimulation.Core
 
                     machine.State = MachineState.Blocked;
                     machine.CurrentPart = part;
-                    Logger.LogMachineBlocked(_currentTime, machine, part, nextMachineId);
                     _scheduler.ScheduleEvent(new RetryTransferEvent(_currentTime + 0.5, machine, part, nextMachineId));
 
                     Debug($"    Scheduled retry at {_currentTime + 0.5:F2}");
@@ -153,12 +161,14 @@ namespace ManufacturingSimulation.Core
 
                 Debug($"    SUCCESS! Transferred to Machine {nextMachineId}");
 
-                Logger.LogPartTransfer(_currentTime, part, machine.Id, nextMachineId);
                 machine.CurrentPart = null;
                 machine.State = MachineState.Idle;
                 machine.PartsCompleted++;
 
-                TryStartProcessing(Machines.First(m => m.Id == nextMachineId));
+                var nextMachine = Machines.First(m => m.Id == nextMachineId);
+                _eventLogger?.LogQueueEntry(_currentTime, part.Id, part.Id, nextMachine.Name, nextBuffer.Count);
+
+                TryStartProcessing(nextMachine);
                 TryStartProcessing(machine);
             }
             else
@@ -173,7 +183,7 @@ namespace ManufacturingSimulation.Core
                 _totalPartsCompleted++;
 
                 double flowTime = part.CompletionTime - part.ArrivalTime;
-                Logger.LogPartCompleted(_currentTime, part, flowTime);
+                _eventLogger?.LogPartCompletion(_currentTime, part.Id, part.Id, flowTime);
 
                 Debug($"    About to call TryStartProcessing({machine.Name})");
                 TryStartProcessing(machine);
@@ -200,13 +210,13 @@ namespace ManufacturingSimulation.Core
 
             // Sample processing time from distribution
             double processingTime = _processingTimeDistribution?.Sample(_random) ?? (2.0 + _random.NextDouble() * 4.0);
-            
+
             // Ensure positive processing time
             processingTime = Math.Max(0.1, processingTime);
-            
+
             part.EstimatedProcessingTime = processingTime;
             machine.StartProcessing(part, _currentTime, processingTime);
-            Logger.LogPartProcessingStart(_currentTime, machine, part, processingTime);
+            _eventLogger?.LogProcessingStart(_currentTime, part.Id, part.Id, machine.Name);
             _scheduler.ScheduleEvent(new ProcessingCompleteEvent(_currentTime + processingTime, machine, part));
         }
 
@@ -221,7 +231,6 @@ namespace ManufacturingSimulation.Core
             _totalPartsCompleted = 0;
             _completedParts.Clear();
             _machineBusyTime.Clear();
-            Logger.Clear();
 
             foreach (var machine in Machines)
             {
@@ -290,8 +299,6 @@ namespace ManufacturingSimulation.Core
             if (added)
             {
                 Debug($"    *** UNBLOCKED! Transfer succeeded! ***");
-
-                Logger.LogPartTransfer(_currentTime, part, machine.Id, targetMachineId);
 
                 machine.CurrentPart = null;
                 machine.State = MachineState.Idle;

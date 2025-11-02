@@ -1,0 +1,401 @@
+<Window x:Class="ManufacturingSimulation.WPF.Views.ConfigurationEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Manufacturing System Configurator" 
+        Height="700" Width="1200"
+        WindowStartupLocation="CenterScreen"
+        MinHeight="600" MinWidth="1000">
+
+    <Window.Resources>
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Margin" Value="0,10,0,5"/>
+            <Setter Property="Foreground" Value="#2C3E50"/>
+        </Style>
+        
+        <Style x:Key="ActionButton" TargetType="Button">
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="MinWidth" Value="80"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Toolbar -->
+        <ToolBar Grid.Row="0" Background="#ECF0F1">
+            <Button Content="📁 Load Config" Click="BtnLoadConfig_Click"/>
+            <Button Content="💾 Save Config" Click="BtnSaveConfig_Click"/>
+            <Separator/>
+            <Button Content="🗄️ Load from DB" Click="BtnLoadFromDB_Click"/>
+            <Button Content="🗄️ Save to DB" Click="BtnSaveToDB_Click"/>
+            <Separator/>
+            <Button Content="✅ Apply" Click="BtnApply_Click"/>
+            <Button Content="❌ Cancel" Click="BtnCancel_Click"/>
+        </ToolBar>
+
+        <!-- Main Content -->
+        <TabControl Grid.Row="1" Margin="10">
+            
+            <!-- Machines Tab -->
+            <TabItem Header="🔧 Machines">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="200"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="Machine Configuration" Style="{StaticResource SectionHeader}"/>
+
+                    <!-- Machine List -->
+                    <DataGrid Grid.Row="1" x:Name="dgMachines" 
+                             AutoGenerateColumns="False"
+                             CanUserAddRows="True"
+                             SelectionMode="Single"
+                             SelectionChanged="DgMachines_SelectionChanged"
+                             Margin="0,5">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="50"/>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="150"/>
+                            <DataGridTextColumn Header="Type" Binding="{Binding MachineType}" Width="100"/>
+                            <DataGridTextColumn Header="Buffer Capacity" Binding="{Binding BufferCapacity}" Width="100"/>
+                            <DataGridComboBoxColumn Header="Dispatching Rule" 
+                                                   SelectedItemBinding="{Binding DispatchingRule}" 
+                                                   Width="120">
+                                <DataGridComboBoxColumn.ElementStyle>
+                                    <Style TargetType="ComboBox">
+                                        <Setter Property="ItemsSource">
+                                            <Setter.Value>
+                                                <x:Array Type="sys:String" xmlns:sys="clr-namespace:System;assembly=mscorlib">
+                                                    <sys:String>FIFO</sys:String>
+                                                    <sys:String>LIFO</sys:String>
+                                                    <sys:String>SPT</sys:String>
+                                                    <sys:String>EDD</sys:String>
+                                                    <sys:String>Priority</sys:String>
+                                                </x:Array>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </DataGridComboBoxColumn.ElementStyle>
+                            </DataGridComboBoxColumn>
+                            <DataGridTextColumn Header="Quantity" Binding="{Binding Quantity}" Width="70"/>
+                            <DataGridTextColumn Header="Cost ($)" Binding="{Binding Cost}" Width="80"/>
+                            <DataGridTextColumn Header="MTBF (hrs)" Binding="{Binding MTBF}" Width="80"/>
+                            <DataGridTextColumn Header="MTTR (hrs)" Binding="{Binding MTTR}" Width="80"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <!-- Machine Actions -->
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,5">
+                        <Button Content="➕ Add Machine" Style="{StaticResource ActionButton}" Click="BtnAddMachine_Click"/>
+                        <Button Content="❌ Delete Machine" Style="{StaticResource ActionButton}" Click="BtnDeleteMachine_Click"/>
+                        <Button Content="📋 Duplicate" Style="{StaticResource ActionButton}" Click="BtnDuplicateMachine_Click"/>
+                    </StackPanel>
+
+                    <!-- Machine Details Panel -->
+                    <GroupBox Grid.Row="3" Header="Selected Machine Details" Margin="0,5">
+                        <Grid x:Name="pnlMachineDetails" IsEnabled="False">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Margin="5">
+                                <TextBlock Text="Description:"/>
+                                <TextBox x:Name="txtMachineDescription" Height="60" TextWrapping="Wrap" 
+                                        AcceptsReturn="True" Margin="0,5,0,10"/>
+                                
+                                <TextBlock Text="Processing Time Distribution:"/>
+                                <ComboBox x:Name="cmbProcessingDist" Margin="0,5,0,10">
+                                    <ComboBoxItem Content="Exponential"/>
+                                    <ComboBoxItem Content="Uniform" IsSelected="True"/>
+                                    <ComboBoxItem Content="Normal"/>
+                                    <ComboBoxItem Content="Triangular"/>
+                                    <ComboBoxItem Content="Constant"/>
+                                </ComboBox>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" Margin="5">
+                                <TextBlock Text="Distribution Parameters:"/>
+                                <TextBox x:Name="txtDistParams" Height="60" TextWrapping="Wrap" 
+                                        AcceptsReturn="True" Margin="0,5,0,10"
+                                        ToolTip="Enter parameters separated by commas (e.g., 2.0, 6.0 for Uniform)"/>
+                                
+                                <TextBlock Text="Notes:"/>
+                                <TextBox x:Name="txtMachineNotes" Height="60" TextWrapping="Wrap" 
+                                        AcceptsReturn="True" Margin="0,5,0,10"/>
+                            </StackPanel>
+                        </Grid>
+                    </GroupBox>
+                </Grid>
+            </TabItem>
+
+            <!-- Parts & Routes Tab -->
+            <TabItem Header="Parts and Routes">
+                <Grid Margin="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="10"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Parts List -->
+                    <Grid Grid.Column="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Text="Part Types" Style="{StaticResource SectionHeader}"/>
+
+                        <DataGrid Grid.Row="1" x:Name="dgParts" 
+                                 AutoGenerateColumns="False"
+                                 SelectionMode="Single"
+                                 SelectionChanged="DgParts_SelectionChanged"
+                                 Margin="0,5">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Part ID" Binding="{Binding PartId}" Width="80"/>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="150"/>
+                                <DataGridTextColumn Header="Demand Rate" Binding="{Binding DemandRate}" Width="100"/>
+                                <DataGridTextColumn Header="Value ($)" Binding="{Binding Value}" Width="80"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,5">
+                            <Button Content="➕ Add Part" Style="{StaticResource ActionButton}" Click="BtnAddPart_Click"/>
+                            <Button Content="❌ Delete Part" Style="{StaticResource ActionButton}" Click="BtnDeletePart_Click"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Route Details -->
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Text="Operations for Selected Part" Style="{StaticResource SectionHeader}"/>
+
+                        <DataGrid Grid.Row="1" x:Name="dgOperations" 
+                                 AutoGenerateColumns="False"
+                                 Margin="0,5">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Seq" Binding="{Binding Sequence}" Width="50"/>
+                                <DataGridTextColumn Header="Operation" Binding="{Binding OperationName}" Width="120"/>
+                                <DataGridComboBoxColumn Header="Machine" 
+                                                       SelectedItemBinding="{Binding MachineId}" 
+                                                       Width="100"/>
+                                <DataGridTextColumn Header="Setup Time" Binding="{Binding SetupTime}" Width="90"/>
+                                <DataGridTextColumn Header="Process Time" Binding="{Binding ProcessTime}" Width="90"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,5">
+                            <Button Content="➕ Add Operation" Style="{StaticResource ActionButton}" Click="BtnAddOperation_Click"/>
+                            <Button Content="❌ Delete Operation" Style="{StaticResource ActionButton}" Click="BtnDeleteOperation_Click"/>
+                            <Button Content="🔼 Move Up" Style="{StaticResource ActionButton}" Click="BtnMoveOpUp_Click"/>
+                            <Button Content="🔽 Move Down" Style="{StaticResource ActionButton}" Click="BtnMoveOpDown_Click"/>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <!-- Arrival Pattern Tab -->
+            <TabItem Header="📊 Arrival Patterns">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="Part Arrival Configuration" Style="{StaticResource SectionHeader}"/>
+
+                    <GroupBox Grid.Row="1" Header="Arrival Distribution" Margin="0,10">
+                        <StackPanel Margin="10">
+                            <StackPanel Orientation="Horizontal" Margin="0,5">
+                                <TextBlock Text="Distribution Type:" Width="150" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="cmbArrivalDist" Width="200" SelectionChanged="CmbArrivalDist_SelectionChanged">
+                                    <ComboBoxItem Content="Exponential (Poisson Process)" IsSelected="True"/>
+                                    <ComboBoxItem Content="Uniform"/>
+                                    <ComboBoxItem Content="Normal"/>
+                                    <ComboBoxItem Content="Constant (Deterministic)"/>
+                                </ComboBox>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,5">
+                                <TextBlock Text="Parameters:" Width="150" VerticalAlignment="Center"/>
+                                <TextBox x:Name="txtArrivalParams" Width="200" 
+                                        ToolTip="For Exponential: rate (e.g., 0.5 for mean=2.0)"/>
+                                <TextBlock x:Name="lblArrivalHelp" Text="Rate = 0.5 (Mean inter-arrival = 2.0)" 
+                                          Margin="10,0" VerticalAlignment="Center" Foreground="Gray"/>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,5">
+                                <TextBlock Text="Number of Parts:" Width="150" VerticalAlignment="Center"/>
+                                <TextBox x:Name="txtNumberOfParts" Width="200" Text="20"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <GroupBox Grid.Row="2" Header="Simulation Parameters" Margin="0,10">
+                        <StackPanel Margin="10">
+                            <StackPanel Orientation="Horizontal" Margin="0,5">
+                                <TextBlock Text="Run Length:" Width="150" VerticalAlignment="Center"/>
+                                <TextBox x:Name="txtRunLength" Width="200" Text="1000"/>
+                                <TextBlock Text="time units" Margin="10,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,5">
+                                <TextBlock Text="Random Seed:" Width="150" VerticalAlignment="Center"/>
+                                <TextBox x:Name="txtRandomSeed" Width="200" Text="42"/>
+                                <TextBlock Text="(for reproducibility)" Margin="10,0" VerticalAlignment="Center" Foreground="Gray"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <GroupBox Grid.Row="3" Header="Distribution Preview" Margin="0,10">
+                        <Grid>
+                            <TextBlock Text="📈 Distribution visualization will appear here" 
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      Foreground="Gray" FontSize="14"/>
+                        </Grid>
+                    </GroupBox>
+                </Grid>
+            </TabItem>
+
+            <!-- Visual Configurator Tab -->
+            <TabItem Header="🎨 Visual Designer">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="Drag and Drop System Designer" Style="{StaticResource SectionHeader}"/>
+                    
+                    <!-- Toolbox -->
+                    <ToolBar Grid.Row="1" Background="#F0F0F0" Margin="0,5">
+                        <TextBlock Text="Components:" Margin="5,0" VerticalAlignment="Center" FontWeight="Bold"/>
+                        <Button x:Name="btnAddMachineBlock" Content="🔧 Machine" Click="BtnAddMachineBlock_Click"/>
+                        <Button x:Name="btnAddBufferBlock" Content="📦 Buffer" Click="BtnAddBufferBlock_Click"/>
+                        <Button x:Name="btnAddSourceBlock" Content="⚡ Source" Click="BtnAddSourceBlock_Click"/>
+                        <Button x:Name="btnAddSinkBlock" Content="🎯 Sink" Click="BtnAddSinkBlock_Click"/>
+                        <Separator/>
+                        <Button x:Name="btnConnect" Content="🔗 Connect" Click="BtnConnect_Click"/>
+                        <Button x:Name="btnDelete" Content="🗑️ Delete" Click="BtnDeleteBlock_Click"/>
+                        <Separator/>
+                        <Button x:Name="btnClearCanvas" Content="🧹 Clear All" Click="BtnClearCanvas_Click"/>
+                    </ToolBar>
+
+                    <!-- Canvas -->
+                    <Border Grid.Row="2" BorderBrush="#BDC3C7" BorderThickness="1" Background="White">
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                            <Canvas x:Name="designCanvas" 
+                                   Width="2000" Height="1500" 
+                                   MouseLeftButtonDown="DesignCanvas_MouseLeftButtonDown"
+                                   MouseMove="DesignCanvas_MouseMove"
+                                   MouseLeftButtonUp="DesignCanvas_MouseLeftButtonUp">
+                                <!-- Grid lines for visual reference -->
+                                <Canvas.Background>
+                                    <DrawingBrush TileMode="Tile" Viewport="0,0,20,20" ViewportUnits="Absolute">
+                                        <DrawingBrush.Drawing>
+                                            <GeometryDrawing>
+                                                <GeometryDrawing.Geometry>
+                                                    <GeometryGroup>
+                                                        <LineGeometry StartPoint="0,0" EndPoint="20,0"/>
+                                                        <LineGeometry StartPoint="0,0" EndPoint="0,20"/>
+                                                    </GeometryGroup>
+                                                </GeometryDrawing.Geometry>
+                                                <GeometryDrawing.Pen>
+                                                    <Pen Brush="#E0E0E0" Thickness="0.5"/>
+                                                </GeometryDrawing.Pen>
+                                            </GeometryDrawing>
+                                        </DrawingBrush.Drawing>
+                                    </DrawingBrush>
+                                </Canvas.Background>
+                            </Canvas>
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- Distributions Library Tab -->
+            <TabItem Header="📚 Distribution Library">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="10">
+                        <TextBlock Text="Built-in Probability Distributions" Style="{StaticResource SectionHeader}"/>
+
+                        <!-- Exponential -->
+                        <GroupBox Header="Exponential Distribution" Margin="0,10">
+                            <StackPanel Margin="10">
+                                <TextBlock Text="Use for: Inter-arrival times, failure times (memoryless property)" TextWrapping="Wrap"/>
+                                <TextBlock Text="Parameters: λ (rate)" Margin="0,5"/>
+                                <TextBlock Text="Mean = 1/λ, Variance = 1/λ²" Foreground="Gray"/>
+                                <TextBlock Text="Example: λ=0.5 → mean inter-arrival = 2.0 time units" Margin="0,5" Foreground="Blue"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- Uniform -->
+                        <GroupBox Header="Uniform Distribution" Margin="0,10">
+                            <StackPanel Margin="10">
+                                <TextBlock Text="Use for: When all values in range are equally likely" TextWrapping="Wrap"/>
+                                <TextBlock Text="Parameters: min, max" Margin="0,5"/>
+                                <TextBlock Text="Mean = (min+max)/2" Foreground="Gray"/>
+                                <TextBlock Text="Example: min=2.0, max=6.0 → mean = 4.0" Margin="0,5" Foreground="Blue"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- Normal -->
+                        <GroupBox Header="Normal (Gaussian) Distribution" Margin="0,10">
+                            <StackPanel Margin="10">
+                                <TextBlock Text="Use for: Natural variations, measurement errors" TextWrapping="Wrap"/>
+                                <TextBlock Text="Parameters: μ (mean), σ (std dev)" Margin="0,5"/>
+                                <TextBlock Text="68% of values within μ±σ, 95% within μ±2σ" Foreground="Gray"/>
+                                <TextBlock Text="Example: μ=4.0, σ=0.5" Margin="0,5" Foreground="Blue"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- Triangular -->
+                        <GroupBox Header="Triangular Distribution" Margin="0,10">
+                            <StackPanel Margin="10">
+                                <TextBlock Text="Use for: Expert estimates with min/mode/max" TextWrapping="Wrap"/>
+                                <TextBlock Text="Parameters: min, mode, max" Margin="0,5"/>
+                                <TextBlock Text="Mean ≈ (min+mode+max)/3" Foreground="Gray"/>
+                                <TextBlock Text="Example: min=2, mode=4, max=8" Margin="0,5" Foreground="Blue"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- Constant -->
+                        <GroupBox Header="Constant (Deterministic)" Margin="0,10">
+                            <StackPanel Margin="10">
+                                <TextBlock Text="Use for: Fixed, known values" TextWrapping="Wrap"/>
+                                <TextBlock Text="Parameters: value" Margin="0,5"/>
+                                <TextBlock Text="Always returns the same value" Foreground="Gray"/>
+                                <TextBlock Text="Example: value=5.0 → always 5.0" Margin="0,5" Foreground="Blue"/>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+
+        <!-- Status Bar -->
+        <StatusBar Grid.Row="2" Background="#ECF0F1">
+            <StatusBarItem>
+                <TextBlock x:Name="txtStatus" Text="Ready"/>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window>

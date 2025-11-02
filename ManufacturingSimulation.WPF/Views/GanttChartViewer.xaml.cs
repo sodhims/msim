@@ -41,7 +41,7 @@ namespace ManufacturingSimulation.WPF.Views
             resourceListPanel.Children.Clear();
             timelineCanvas.Children.Clear();
             _taskBars.Clear();
-
+            
             txtStatus.Text = "Chart cleared";
         }
 
@@ -60,7 +60,7 @@ namespace ManufacturingSimulation.WPF.Views
                 // Create a Rectangle for the task
                 // Position it based on startTime and resourceId
                 // Add to tasksCanvas
-
+                
                 txtStatus.Text = $"Task {taskId} added";
             }
             catch (Exception ex)
@@ -150,12 +150,12 @@ namespace ManufacturingSimulation.WPF.Views
                 try
                 {
                     // TODO: Implement chart export to image
-                    MessageBox.Show("Export functionality not yet implemented.",
+                    MessageBox.Show("Export functionality not yet implemented.", 
                         "Coming Soon", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Error exporting chart: {ex.Message}",
+                    MessageBox.Show($"Error exporting chart: {ex.Message}", 
                         "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }

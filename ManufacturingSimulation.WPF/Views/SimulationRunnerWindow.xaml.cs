@@ -1,28 +1,39 @@
-using System.Windows.Controls;
+using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 using ManufacturingSimulation.WPF.ViewModels;
 using ManufacturingSimulation.Bridge;
+using ManufacturingSimulation.Database.Models;
 
 namespace ManufacturingSimulation.WPF.Views
 {
     public partial class SimulationRunnerWindow : Window
     {
+        private SimulationRunnerViewModel ViewModel => DataContext as SimulationRunnerViewModel;
+
         public SimulationRunnerWindow()
         {
             InitializeComponent();
-            DataContext = new SimulationRunnerViewModel();
+            
+            var vm = new SimulationRunnerViewModel();
+            
+            // Wire up multi-select support
+            vm.GetSelectedAvailableOrders = () => 
+                AvailableOrdersList.SelectedItems.Cast<ProductionOrder>().ToList();
+            
+            vm.GetSelectedSimulationOrders = () => 
+                SelectedOrdersList.SelectedItems.Cast<ProductionOrder>().ToList();
+            
+            DataContext = vm;
         }
 
         private void PastRunsGrid_DoubleClick(object sender, MouseButtonEventArgs e)
         {
-            var vm = DataContext as SimulationRunnerViewModel;
-            if (vm != null && PastRunsGrid.SelectedItem is SimulationRunSummary summary)
+            if (ViewModel != null && PastRunsGrid.SelectedItem is SimulationRunSummary summary)
             {
-                vm.ViewResultsCommand.Execute(summary);
+                ViewModel.ViewResultsCommand.Execute(summary);
             }
         }
-
-        private DataGrid PastRunsGrid => (DataGrid)((GroupBox)((Grid)Content).Children[3]).Content;
     }
 }

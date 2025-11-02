@@ -1,0 +1,590 @@
+using System;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Shapes;
+using ManufacturingSimulation.Core.Configuration;
+using Microsoft.Win32;
+using System.IO;
+using System.Text.Json;
+
+namespace ManufacturingSimulation.WPF.Views
+{
+    public partial class ConfigurationEditorWindow : Window
+    {
+        private ObservableCollection<MachineConfigViewModel> _machines;
+        private ObservableCollection<PartConfigViewModel> _parts;
+        private ObservableCollection<OperationViewModel> _operations;
+        
+        // Visual designer state
+        private Point _dragStartPoint;
+        private bool _isDragging = false;
+        private UIElement _draggedElement = null;
+
+        public SimulationConfiguration ResultConfiguration { get; private set; }
+        public bool WasApplied { get; private set; } = false;
+
+        public ConfigurationEditorWindow()
+        {
+            InitializeComponent();
+            InitializeCollections();
+            LoadDefaultConfiguration();
+        }
+
+        private void InitializeCollections()
+        {
+            _machines = new ObservableCollection<MachineConfigViewModel>();
+            _parts = new ObservableCollection<PartConfigViewModel>();
+            _operations = new ObservableCollection<OperationViewModel>();
+
+            dgMachines.ItemsSource = _machines;
+            dgParts.ItemsSource = _parts;
+            dgOperations.ItemsSource = _operations;
+        }
+
+        private void LoadDefaultConfiguration()
+        {
+            var config = new SimulationConfiguration();
+            
+            // Load machines
+            foreach (var machine in config.Machines)
+            {
+                _machines.Add(new MachineConfigViewModel(machine));
+            }
+
+            // Load simulation parameters
+            txtRunLength.Text = config.RunLength.ToString();
+            txtRandomSeed.Text = config.RandomSeed.ToString();
+            txtNumberOfParts.Text = config.NumberOfParts.ToString();
+            txtArrivalParams.Text = string.Join(", ", config.ArrivalDistributionParams);
+
+            UpdateStatus("Default configuration loaded");
+        }
+
+        #region Machine Management
+
+        private void BtnAddMachine_Click(object sender, RoutedEventArgs e)
+        {
+            int newId = _machines.Any() ? _machines.Max(m => m.Id) + 1 : 1;
+            var newMachine = new MachineConfigViewModel
+            {
+                Id = newId,
+                Name = $"Machine {newId}",
+                MachineType = "Generic",
+                BufferCapacity = 10,
+                DispatchingRule = "FIFO",
+                Quantity = 1,
+                Cost = 50000,
+                MTBF = 100,
+                MTTR = 2
+            };
+            _machines.Add(newMachine);
+            UpdateStatus($"Added machine: {newMachine.Name}");
+        }
+
+        private void BtnDeleteMachine_Click(object sender, RoutedEventArgs e)
+        {
+            if (dgMachines.SelectedItem is MachineConfigViewModel selected)
+            {
+                _machines.Remove(selected);
+                UpdateStatus($"Deleted machine: {selected.Name}");
+            }
+        }
+
+        private void BtnDuplicateMachine_Click(object sender, RoutedEventArgs e)
+        {
+            if (dgMachines.SelectedItem is MachineConfigViewModel selected)
+            {
+                int newId = _machines.Max(m => m.Id) + 1;
+                var duplicate = new MachineConfigViewModel
+                {
+                    Id = newId,
+                    Name = $"{selected.Name} (Copy)",
+                    MachineType = selected.MachineType,
+                    BufferCapacity = selected.BufferCapacity,
+                    DispatchingRule = selected.DispatchingRule,
+                    Quantity = selected.Quantity,
+                    Cost = selected.Cost,
+                    MTBF = selected.MTBF,
+                    MTTR = selected.MTTR
+                };
+                _machines.Add(duplicate);
+                UpdateStatus($"Duplicated machine: {selected.Name}");
+            }
+        }
+
+        private void DgMachines_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            pnlMachineDetails.IsEnabled = dgMachines.SelectedItem != null;
+        }
+
+        #endregion
+
+        #region Part Management
+
+        private void BtnAddPart_Click(object sender, RoutedEventArgs e)
+        {
+            int newId = _parts.Any() ? _parts.Max(p => p.PartId) + 1 : 1;
+            var newPart = new PartConfigViewModel
+            {
+                PartId = newId,
+                Name = $"Part {newId}",
+                DemandRate = 1.0,
+                Value = 100.0
+            };
+            _parts.Add(newPart);
+            UpdateStatus($"Added part: {newPart.Name}");
+        }
+
+        private void BtnDeletePart_Click(object sender, RoutedEventArgs e)
+        {
+            if (dgParts.SelectedItem is PartConfigViewModel selected)
+            {
+                _parts.Remove(selected);
+                UpdateStatus($"Deleted part: {selected.Name}");
+            }
+        }
+
+        private void DgParts_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (dgParts.SelectedItem is PartConfigViewModel selected)
+            {
+                // Load operations for this part
+                _operations.Clear();
+                // TODO: Load actual operations from part
+                UpdateStatus($"Selected part: {selected.Name}");
+            }
+        }
+
+        #endregion
+
+        #region Operation Management
+
+        private void BtnAddOperation_Click(object sender, RoutedEventArgs e)
+        {
+            if (dgParts.SelectedItem == null)
+            {
+                MessageBox.Show("Please select a part first.", "No Part Selected", 
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            int seq = _operations.Any() ? _operations.Max(o => o.Sequence) + 1 : 1;
+            _operations.Add(new OperationViewModel
+            {
+                Sequence = seq,
+                OperationName = $"Operation {seq}",
+                MachineId = _machines.Any() ? _machines.First().Id : 1,
+                SetupTime = 0.5,
+                ProcessTime = 4.0
+            });
+        }
+
+        private void BtnDeleteOperation_Click(object sender, RoutedEventArgs e)
+        {
+            if (dgOperations.SelectedItem is OperationViewModel selected)
+            {
+                _operations.Remove(selected);
+                // Resequence
+                int seq = 1;
+                foreach (var op in _operations.OrderBy(o => o.Sequence))
+                {
+                    op.Sequence = seq++;
+                }
+            }
+        }
+
+        private void BtnMoveOpUp_Click(object sender, RoutedEventArgs e)
+        {
+            if (dgOperations.SelectedItem is OperationViewModel selected && selected.Sequence > 1)
+            {
+                var prev = _operations.FirstOrDefault(o => o.Sequence == selected.Sequence - 1);
+                if (prev != null)
+                {
+                    int temp = prev.Sequence;
+                    prev.Sequence = selected.Sequence;
+                    selected.Sequence = temp;
+                    dgOperations.Items.Refresh();
+                }
+            }
+        }
+
+        private void BtnMoveOpDown_Click(object sender, RoutedEventArgs e)
+        {
+            if (dgOperations.SelectedItem is OperationViewModel selected)
+            {
+                var next = _operations.FirstOrDefault(o => o.Sequence == selected.Sequence + 1);
+                if (next != null)
+                {
+                    int temp = next.Sequence;
+                    next.Sequence = selected.Sequence;
+                    selected.Sequence = temp;
+                    dgOperations.Items.Refresh();
+                }
+            }
+        }
+
+        #endregion
+
+        #region Visual Designer
+
+        private void BtnAddMachineBlock_Click(object sender, RoutedEventArgs e)
+        {
+            AddBlock("Machine", Colors.SteelBlue);
+        }
+
+        private void BtnAddBufferBlock_Click(object sender, RoutedEventArgs e)
+        {
+            AddBlock("Buffer", Colors.Orange);
+        }
+
+        private void BtnAddSourceBlock_Click(object sender, RoutedEventArgs e)
+        {
+            AddBlock("Source", Colors.Green);
+        }
+
+        private void BtnAddSinkBlock_Click(object sender, RoutedEventArgs e)
+        {
+            AddBlock("Sink", Colors.Red);
+        }
+
+        private void AddBlock(string type, Color color)
+        {
+            var block = CreateBlock(type, color);
+            Canvas.SetLeft(block, 50 + (_random.NextDouble() * 200));
+            Canvas.SetTop(block, 50 + (_random.NextDouble() * 200));
+            designCanvas.Children.Add(block);
+            UpdateStatus($"Added {type} block");
+        }
+
+        private static Random _random = new Random();
+
+        private Grid CreateBlock(string type, Color color)
+        {
+            var grid = new Grid
+            {
+                Width = 100,
+                Height = 60,
+                Background = new SolidColorBrush(color),
+                Tag = type,
+                Cursor = Cursors.Hand
+            };
+
+            var border = new Border
+            {
+                BorderBrush = Brushes.Black,
+                BorderThickness = new Thickness(2),
+                CornerRadius = new CornerRadius(5)
+            };
+
+            var textBlock = new TextBlock
+            {
+                Text = type,
+                Foreground = Brushes.White,
+                FontWeight = FontWeights.Bold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            grid.Children.Add(border);
+            grid.Children.Add(textBlock);
+
+            // Enable dragging
+            grid.MouseLeftButtonDown += Block_MouseLeftButtonDown;
+            grid.MouseMove += Block_MouseMove;
+            grid.MouseLeftButtonUp += Block_MouseLeftButtonUp;
+
+            return grid;
+        }
+
+        private void Block_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _draggedElement = sender as UIElement;
+            _dragStartPoint = e.GetPosition(designCanvas);
+            _isDragging = true;
+            _draggedElement?.CaptureMouse();
+            e.Handled = true;
+        }
+
+        private void Block_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (_isDragging && _draggedElement != null && e.LeftButton == MouseButtonState.Pressed)
+            {
+                Point currentPosition = e.GetPosition(designCanvas);
+                double offsetX = currentPosition.X - _dragStartPoint.X;
+                double offsetY = currentPosition.Y - _dragStartPoint.Y;
+
+                double newLeft = Canvas.GetLeft(_draggedElement) + offsetX;
+                double newTop = Canvas.GetTop(_draggedElement) + offsetY;
+
+                Canvas.SetLeft(_draggedElement, newLeft);
+                Canvas.SetTop(_draggedElement, newTop);
+
+                _dragStartPoint = currentPosition;
+                e.Handled = true;
+            }
+        }
+
+        private void Block_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (_isDragging)
+            {
+                _isDragging = false;
+                _draggedElement?.ReleaseMouseCapture();
+                _draggedElement = null;
+                e.Handled = true;
+            }
+        }
+
+        private void DesignCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            // Canvas click (for future connection mode)
+        }
+
+        private void DesignCanvas_MouseMove(object sender, MouseEventArgs e)
+        {
+            // Canvas move (for connection drawing)
+        }
+
+        private void DesignCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            // Canvas release
+        }
+
+        private void BtnConnect_Click(object sender, RoutedEventArgs e)
+        {
+            UpdateStatus("Connection mode - feature coming soon");
+        }
+
+        private void BtnDeleteBlock_Click(object sender, RoutedEventArgs e)
+        {
+            // TODO: Implement block deletion
+            UpdateStatus("Select a block and press Delete key");
+        }
+
+        private void BtnClearCanvas_Click(object sender, RoutedEventArgs e)
+        {
+            if (MessageBox.Show("Clear all blocks?", "Confirm", 
+                MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+            {
+                designCanvas.Children.Clear();
+                UpdateStatus("Canvas cleared");
+            }
+        }
+
+        #endregion
+
+        #region File Operations
+
+        private void BtnLoadConfig_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new OpenFileDialog
+            {
+                Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*",
+                Title = "Load Configuration"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                try
+                {
+                    string json = File.ReadAllText(dialog.FileName);
+                    var config = JsonSerializer.Deserialize<SimulationConfiguration>(json);
+                    LoadConfigurationIntoUI(config);
+                    UpdateStatus($"Loaded: {System.IO.Path.GetFileName(dialog.FileName)}");
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error loading configuration: {ex.Message}", 
+                        "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        private void BtnSaveConfig_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new SaveFileDialog
+            {
+                Filter = "JSON files (*.json)|*.json",
+                FileName = "manufacturing_config.json",
+                Title = "Save Configuration"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                try
+                {
+                    var config = BuildConfigurationFromUI();
+                    string json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+                    File.WriteAllText(dialog.FileName, json);
+                    UpdateStatus($"Saved: {System.IO.Path.GetFileName(dialog.FileName)}");
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error saving configuration: {ex.Message}", 
+                        "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        private void BtnLoadFromDB_Click(object sender, RoutedEventArgs e)
+        {
+            MessageBox.Show("Database integration coming soon!", "Info", 
+                MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void BtnSaveToDB_Click(object sender, RoutedEventArgs e)
+        {
+            MessageBox.Show("Database integration coming soon!", "Info", 
+                MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        #endregion
+
+        #region Apply/Cancel
+
+        private void BtnApply_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                ResultConfiguration = BuildConfigurationFromUI();
+                WasApplied = true;
+                UpdateStatus("Configuration applied");
+                DialogResult = true;
+                Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error applying configuration: {ex.Message}", 
+                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void BtnCancel_Click(object sender, RoutedEventArgs e)
+        {
+            WasApplied = false;
+            DialogResult = false;
+            Close();
+        }
+
+        #endregion
+
+        #region Helper Methods
+
+        private SimulationConfiguration BuildConfigurationFromUI()
+        {
+            var config = new SimulationConfiguration
+            {
+                Machines = _machines.Select(m => new MachineConfiguration
+                {
+                    Id = m.Id,
+                    Name = m.Name,
+                    BufferCapacity = m.BufferCapacity,
+                    DispatchingRule = m.DispatchingRule,
+                    Quantity = m.Quantity
+                }).ToList(),
+                
+                RunLength = double.Parse(txtRunLength.Text),
+                RandomSeed = int.Parse(txtRandomSeed.Text),
+                NumberOfParts = int.Parse(txtNumberOfParts.Text),
+                
+                ArrivalDistributionType = GetSelectedDistribution(cmbArrivalDist),
+                ArrivalDistributionParams = ParseDistributionParams(txtArrivalParams.Text),
+                
+                // Keep defaults for now
+                UseStandardRoute = true
+            };
+
+            // Set standard route from machine IDs
+            config.StandardRoute = _machines.Select(m => m.Id).ToList();
+
+            return config;
+        }
+
+        private void LoadConfigurationIntoUI(SimulationConfiguration config)
+        {
+            _machines.Clear();
+            foreach (var machine in config.Machines)
+            {
+                _machines.Add(new MachineConfigViewModel(machine));
+            }
+
+            txtRunLength.Text = config.RunLength.ToString();
+            txtRandomSeed.Text = config.RandomSeed.ToString();
+            txtNumberOfParts.Text = config.NumberOfParts.ToString();
+            txtArrivalParams.Text = string.Join(", ", config.ArrivalDistributionParams);
+        }
+
+        private string GetSelectedDistribution(ComboBox comboBox)
+        {
+            if (comboBox.SelectedItem is ComboBoxItem item)
+            {
+                string content = item.Content.ToString();
+                return content.Split(' ')[0]; // Get first word (distribution name)
+            }
+            return "Exponential";
+        }
+
+        private System.Collections.Generic.List<double> ParseDistributionParams(string text)
+        {
+            try
+            {
+                return text.Split(',')
+                    .Select(s => double.Parse(s.Trim()))
+                    .ToList();
+            }
+            catch
+            {
+                return new System.Collections.Generic.List<double> { 0.5 };
+            }
+        }
+
+        private void UpdateStatus(string message)
+        {
+            txtStatus.Text = message;
+        }
+
+        private void CmbArrivalDist_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (lblArrivalHelp == null) return;
+
+            string help = GetSelectedDistribution(cmbArrivalDist) switch
+            {
+                "Exponential" => "Rate = 0.5 (Mean inter-arrival = 2.0)",
+                "Uniform" => "min, max (e.g., 1.0, 3.0)",
+                "Normal" => "mean, std dev (e.g., 2.0, 0.5)",
+                "Constant" => "value (e.g., 2.0)",
+                _ => ""
+            };
+
+            lblArrivalHelp.Text = help;
+        }
+
+        #endregion
+    }
+
+    #region View Models
+
+
+    public class PartConfigViewModel
+    {
+        public int PartId { get; set; }
+        public string Name { get; set; }
+        public double DemandRate { get; set; }
+        public double Value { get; set; }
+    }
+
+    public class OperationViewModel
+    {
+        public int Sequence { get; set; }
+        public string OperationName { get; set; }
+        public int MachineId { get; set; }
+        public double SetupTime { get; set; }
+        public double ProcessTime { get; set; }
+    }
+
+    #endregion
+}

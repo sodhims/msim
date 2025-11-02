@@ -52,31 +52,7 @@ namespace ManufacturingSimulation.Database.Models
         [Column("is_bottleneck")]
         public bool IsBottleneck { get; set; } = false;
 
-        // NEW PROPERTIES FOR SIMULATION CONFIGURATION
-        [Column("quantity")]
-        public int? Quantity { get; set; } = 1;
-
-        [Column("buffer_capacity")]
-        public int? BufferCapacity { get; set; } = 10;
-
-        [Column("is_active")]
-        public bool? IsActive { get; set; } = true;
-
-        [Column("updated_date")]
-        public DateTime? UpdatedDate { get; set; }
-
         // Navigation property
         public Student Student { get; set; }
-
-        // Helper property for WorkCenterType
-        [NotMapped]
-        public string WorkCenterType => WcTypeId switch
-        {
-            1 => "Assembly",
-            2 => "Testing",
-            3 => "Packaging",
-            4 => "Inspection",
-            _ => "Production"
-        };
     }
 }

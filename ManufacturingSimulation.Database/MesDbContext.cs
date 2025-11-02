@@ -29,6 +29,7 @@ namespace ManufacturingSimulation.Database
         
         // Simulation Integration
         public DbSet<SimulationScenario> SimulationScenarios { get; set; }
+        public DbSet<SimulationEvent> SimulationEvents { get; set; }
         public DbSet<SimulationRun> SimulationRuns { get; set; }
         public DbSet<SimulationResult> SimulationResults { get; set; }
         public DbSet<SimulationWorkCenterResult> SimulationWorkCenterResults { get; set; }

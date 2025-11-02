@@ -1,0 +1,156 @@
+<Window x:Class="ManufacturingSimulation.WPF.Views.FlowLogViewer"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Simulation Flow Log" Height="700" Width="1200"
+        WindowStartupLocation="CenterScreen">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Background="#2C3E50" Padding="15">
+            <StackPanel>
+                <TextBlock Text="Simulation Flow Log" 
+                           FontSize="20" 
+                           FontWeight="Bold" 
+                           Foreground="White"/>
+                <TextBlock Text="{Binding RunInfo}" 
+                           FontSize="12" 
+                           Foreground="#ECF0F1" 
+                           Margin="0,5,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Filters -->
+        <Grid Grid.Row="1" Margin="15,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="200"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="200"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0" Text="Event Type:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+            <ComboBox Grid.Column="1" 
+                      ItemsSource="{Binding EventTypes}"
+                      SelectedItem="{Binding SelectedEventType}"
+                      Height="30"/>
+
+            <TextBlock Grid.Column="2" Text="Machine:" VerticalAlignment="Center" Margin="20,0,10,0"/>
+            <ComboBox Grid.Column="3" 
+                      ItemsSource="{Binding Machines}"
+                      SelectedItem="{Binding SelectedMachine}"
+                      Height="30"/>
+
+            <Button Grid.Column="5" 
+                    Content="🔄 Refresh" 
+                    Command="{Binding RefreshCommand}"
+                    Width="100" 
+                    Height="30"
+                    Background="#3498DB"
+                    Foreground="White"/>
+        </Grid>
+
+        <!-- Log Grid -->
+        <DataGrid Grid.Row="2" 
+                  ItemsSource="{Binding FlowEvents}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  GridLinesVisibility="Horizontal"
+                  AlternatingRowBackground="#F5F5F5"
+                  CanUserSortColumns="True"
+                  Margin="15,0">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Time" 
+                                    Binding="{Binding Time, StringFormat='{}{0:F2} hrs'}" 
+                                    Width="80"/>
+                <DataGridTextColumn Header="Event Type" 
+                                    Binding="{Binding EventType}" 
+                                    Width="130">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="FontWeight" Value="Bold"/>
+                            <Style.Triggers>
+                                <Trigger Property="Text" Value="Arrival">
+                                    <Setter Property="Foreground" Value="#2196F3"/>
+                                </Trigger>
+                                <Trigger Property="Text" Value="Start Processing">
+                                    <Setter Property="Foreground" Value="#4CAF50"/>
+                                </Trigger>
+                                <Trigger Property="Text" Value="End Processing">
+                                    <Setter Property="Foreground" Value="#FF9800"/>
+                                </Trigger>
+                                <Trigger Property="Text" Value="Completed">
+                                    <Setter Property="Foreground" Value="#9C27B0"/>
+                                </Trigger>
+                                <Trigger Property="Text" Value="Queue">
+                                    <Setter Property="Foreground" Value="#F44336"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Part ID" 
+                                    Binding="{Binding PartId}" 
+                                    Width="100"/>
+                <DataGridTextColumn Header="Order" 
+                                    Binding="{Binding OrderNumber}" 
+                                    Width="120"/>
+                <DataGridTextColumn Header="Machine" 
+                                    Binding="{Binding MachineName}" 
+                                    Width="150"/>
+                <DataGridTextColumn Header="Queue Size" 
+                                    Binding="{Binding QueueSize}" 
+                                    Width="90"/>
+                <DataGridTextColumn Header="Details" 
+                                    Binding="{Binding Details}" 
+                                    Width="*"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Summary Stats -->
+        <Border Grid.Row="3" 
+                Background="#ECF0F1" 
+                BorderBrush="#BDC3C7" 
+                BorderThickness="0,1,0,0"
+                Padding="15,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <TextBlock FontWeight="Bold">
+        <Run Text="Total Events: "/>
+        <Run Text="{Binding TotalEvents, Mode=OneWay}"/>
+                    </TextBlock>
+                    <TextBlock Text=" | " Margin="15,0"/>
+                    <TextBlock FontWeight="Bold">
+        <Run Text="Parts Completed: "/>
+        <Run Text="{Binding PartsCompleted, Mode=OneWay}"/>
+                    </TextBlock>
+                    <TextBlock Text=" | " Margin="15,0"/>
+                    <TextBlock FontWeight="Bold">
+        <Run Text="Max Queue: "/>
+        <Run Text="{Binding MaxQueueSize, Mode=OneWay}"/>
+                    </TextBlock>
+                </StackPanel>
+                <Button Grid.Column="1" 
+                        Content="💾 Export to CSV" 
+                        Command="{Binding ExportCommand}"
+                        Width="140" 
+                        Height="35"
+                        Background="#4CAF50"
+                        Foreground="White"
+                        FontWeight="Bold"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
