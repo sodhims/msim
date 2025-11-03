@@ -1,0 +1,171 @@
+<UserControl x:Class="ManufacturingSimulation.WPF.Views.FactoryLayoutView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:ManufacturingSimulation.WPF.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="600" d:DesignWidth="1200">
+
+    <UserControl.DataContext>
+        <vm:FactoryLayoutViewModel/>
+    </UserControl.DataContext>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="250"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Left Panel: Machine List & Distance Matrix -->
+        <Grid Grid.Column="0" Background="#F5F5F5">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="200"/>
+            </Grid.RowDefinitions>
+
+            <!-- Available Machines Header -->
+            <TextBlock Grid.Row="0" Text="Available Machines" FontWeight="Bold" FontSize="14" 
+                       Margin="10" Foreground="#333"/>
+
+            <!-- Machine List -->
+<ListBox x:Name="MachineList" 
+         ItemsSource="{Binding AvailableMachines}"
+         DisplayMemberPath="Name"
+         MouseDown="MachineList_MouseDown"
+         MouseDoubleClick="MachineList_MouseDoubleClick"/>
+            <!-- Distance Matrix Header -->
+            <TextBlock Grid.Row="2" Text="Distance Matrix" FontWeight="Bold" FontSize="14" 
+                       Margin="10" Foreground="#333"/>
+
+            <!-- Distance Matrix List -->
+            <ListBox Grid.Row="3" Margin="10,0,10,10"
+                     ItemsSource="{Binding Distances}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding FromMachineId}" Width="30"/>
+                            <TextBlock Text="→" Margin="5,0"/>
+                            <TextBlock Text="{Binding ToMachineId}" Width="30"/>
+                            <TextBlock Text=": " Margin="5,0"/>
+                            <TextBlock Text="{Binding DistanceMeters, StringFormat={}{0:F1}m}"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Grid>
+
+        <!-- Right Panel: Canvas & Controls -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Toolbar -->
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Background="#E0E0E0">
+                <Button Content="Save Layout" Command="{Binding SaveLayoutCommand}" Margin="5"/>
+                <Button Content="Load Layout" Command="{Binding LoadLayoutCommand}" Margin="5"/>
+                <Button Content="Clear All" Command="{Binding ClearLayoutCommand}" Margin="5"/>
+                <Button Content="Calculate Distances" Command="{Binding CalculateDistancesCommand}" Margin="5"/>
+                <Button Content="Snap to Grid" Command="{Binding SnapToGridCommand}" Margin="5"/>
+                <Button Content="Auto Arrange" Command="{Binding AutoArrangeCommand}" Margin="5"/>
+            </StackPanel>
+
+            <!-- Factory Floor Canvas -->
+            <Border Grid.Row="1" BorderBrush="#CCC" BorderThickness="1" Margin="10">
+                <Canvas x:Name="LayoutCanvas" 
+                        Background="White" 
+                        AllowDrop="True"
+                        Width="{Binding CanvasWidth}"
+                        Height="{Binding CanvasHeight}"
+                        PreviewMouseLeftButtonDown="LayoutCanvas_PreviewMouseLeftButtonDown"
+                        PreviewMouseMove="LayoutCanvas_PreviewMouseMove"
+                        PreviewMouseLeftButtonUp="LayoutCanvas_PreviewMouseLeftButtonUp"
+                        MouseLeave="LayoutCanvas_MouseLeave"
+                        DragOver="LayoutCanvas_DragOver"
+                        Drop="LayoutCanvas_Drop" Margin="49,214,-121,-291">
+
+                    <!-- Grid Lines (optional) -->
+                    <Canvas.Style>
+                        <Style TargetType="Canvas">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ShowGrid}" Value="True">
+                                    <Setter Property="Background">
+                                        <Setter.Value>
+                                            <DrawingBrush TileMode="Tile" ViewportUnits="Absolute" 
+                                                          Viewport="0,0,20,20">
+                                                <DrawingBrush.Drawing>
+                                                    <GeometryDrawing>
+                                                        <GeometryDrawing.Geometry>
+                                                            <GeometryGroup>
+                                                                <LineGeometry StartPoint="0,0" EndPoint="20,0"/>
+                                                                <LineGeometry StartPoint="0,0" EndPoint="0,20"/>
+                                                            </GeometryGroup>
+                                                        </GeometryDrawing.Geometry>
+                                                        <GeometryDrawing.Pen>
+                                                            <Pen Brush="#E0E0E0" Thickness="0.5"/>
+                                                        </GeometryDrawing.Pen>
+                                                    </GeometryDrawing>
+                                                </DrawingBrush.Drawing>
+                                            </DrawingBrush>
+                                        </Setter.Value>
+                                    </Setter>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Canvas.Style>
+
+                    <!-- Placed Machines -->
+                    <ItemsControl ItemsSource="{Binding PlacedMachines}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <Canvas/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemContainerStyle>
+                            <Style TargetType="ContentPresenter">
+                                <Setter Property="Canvas.Left" Value="{Binding XCoordinate}"/>
+                                <Setter Property="Canvas.Top" Value="{Binding YCoordinate}"/>
+                            </Style>
+                        </ItemsControl.ItemContainerStyle>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+    <Grid Width="100" Height="80">
+        <Rectangle Fill="#4CAF50" Stroke="#2E7D32" StrokeThickness="2" 
+                   RadiusX="5" RadiusY="5" Cursor="Hand"/>
+        <TextBlock Text="{Binding MachineName}" 
+                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                   Foreground="White" FontWeight="Bold" FontSize="12"
+                   TextWrapping="Wrap" TextAlignment="Center"
+                   Margin="5"/>
+                                    <!-- Context Menu -->
+                                    <Grid.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="Remove from Floor" Click="RemoveMachine_Click"/>
+                                            <MenuItem Header="Rotate 90°" Click="RotateMachine_Click"/>
+                                            <MenuItem Header="Edit Properties" Click="EditMachine_Click"/>
+                                        </ContextMenu>
+                                    </Grid.ContextMenu>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Canvas>
+            </Border>
+
+            <!-- Status Bar -->
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Background="#F5F5F5">
+                <CheckBox Content="Show Grid" IsChecked="{Binding ShowGrid}" Margin="5" 
+                          Checked="ShowGridCheckbox_Checked"/>
+                <CheckBox Content="Show Distances" IsChecked="{Binding ShowDistances}" Margin="5"/>
+                <CheckBox Content="Show Connections" IsChecked="{Binding ShowConnections}" Margin="5"/>
+                <TextBlock Text="{Binding StatusMessage}" Margin="20,0,0,0" VerticalAlignment="Center" 
+                           Foreground="#666"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

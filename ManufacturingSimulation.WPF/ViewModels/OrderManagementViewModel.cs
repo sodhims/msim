@@ -195,6 +195,14 @@ namespace ManufacturingSimulation.WPF.ViewModels
                     _db.SaveChanges();
                     Refresh();
                 }
+                catch (DbUpdateException)
+                {
+                    System.Windows.MessageBox.Show(
+                        $"Cannot delete order {SelectedOrder.OrderNumber}. It is being used in simulation scenarios. Delete those first.",
+                        "Cannot Delete",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Warning);
+                }
                 catch (Exception ex)
                 {
                     System.Windows.MessageBox.Show(
@@ -205,7 +213,6 @@ namespace ManufacturingSimulation.WPF.ViewModels
                 }
             }
         }
-
         public event PropertyChangedEventHandler PropertyChanged;
         protected void OnPropertyChanged(string name) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

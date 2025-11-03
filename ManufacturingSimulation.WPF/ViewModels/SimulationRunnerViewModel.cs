@@ -1,3 +1,9 @@
+using ManufacturingSimulation.Bridge;
+using ManufacturingSimulation.Core.Configuration;
+using ManufacturingSimulation.Database;
+using ManufacturingSimulation.Database.Models;
+using ManufacturingSimulation.WPF.Views;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -5,11 +11,6 @@ using System.ComponentModel;
 using System.Linq;
 using System.Windows;
 using System.Windows.Input;
-using ManufacturingSimulation.Database;
-using ManufacturingSimulation.Database.Models;
-using ManufacturingSimulation.Bridge;
-using ManufacturingSimulation.WPF.Views;
-using Microsoft.EntityFrameworkCore;
 
 namespace ManufacturingSimulation.WPF.ViewModels
 {
@@ -200,39 +201,33 @@ namespace ManufacturingSimulation.WPF.ViewModels
             var selected = GetSelectedAvailableOrders?.Invoke();
             if (selected == null || !selected.Any())
             {
-                MessageBox.Show("Select orders (Ctrl+Click)", 
+                MessageBox.Show("Select orders (Ctrl+Click)",
                     "No Selection", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
-            foreach (var order in selected)
+            foreach (var order in selected.ToList())
             {
                 if (!SelectedOrders.Contains(order))
                 {
                     SelectedOrders.Add(order);
+                    AvailableOrders.Remove(order);
                 }
             }
-
             OnPropertyChanged(nameof(CanRun));
             StatusMessage = $"Added {selected.Count} orders - Total: {SelectedOrders.Count}";
         }
-
         private void AddAllOrders()
         {
-            var ordersToAdd = AvailableOrders.ToList();
-            
-            foreach (var order in ordersToAdd)
+            foreach (var order in AvailableOrders.ToList())
             {
                 if (!SelectedOrders.Contains(order))
                 {
                     SelectedOrders.Add(order);
                 }
             }
-
-            OnPropertyChanged(nameof(CanRun));
-            StatusMessage = $"All {ordersToAdd.Count} orders added";
+            AvailableOrders.Clear();
         }
-
         private void RemoveSelectedOrders()
         {
             var selected = GetSelectedSimulationOrders?.Invoke();
@@ -241,44 +236,60 @@ namespace ManufacturingSimulation.WPF.ViewModels
             foreach (var order in selected.ToList())
             {
                 SelectedOrders.Remove(order);
+                if (!AvailableOrders.Contains(order))
+                {
+                    AvailableOrders.Add(order);
+                }
             }
-
             OnPropertyChanged(nameof(CanRun));
             StatusMessage = $"Removed {selected.Count} orders";
         }
 
         private void ClearOrders()
         {
+            foreach (var order in SelectedOrders.ToList())
+            {
+                if (!AvailableOrders.Contains(order))
+                {
+                    AvailableOrders.Add(order);
+                }
+            }
             SelectedOrders.Clear();
             OnPropertyChanged(nameof(CanRun));
             StatusMessage = "Orders cleared";
         }
-
         private async void RunSimulation()
         {
             if (!CanRun) return;
 
             IsRunning = true;
-            
-            var machineConfig = string.Join(", ", 
-                MachineConfigurations.Select(m => $"{m.MachineName}:{m.Quantity}"));
-            
+
+            //var machineConfig = string.Join(", ", 
+            //    MachineConfigurations.Select(m => $"{m.MachineName}:{m.Quantity}"));
+            var machineConfig = string.Join(", ",
+               MachineConfigurations.Select(m => $"{m.MachineName}:{m.Quantity}"));
+
             StatusMessage = $"Running: {SelectedDispatchRule} | {machineConfig}";
 
             try
             {
                 var orderIds = SelectedOrders.Select(o => o.OrderId).ToList();
-
-                var result = await System.Threading.Tasks.Task.Run(() =>
+                var result = await Task.Run(() =>
                     _simService.QuickRun(
                         studentId: 1,
                         orderIds: orderIds,
                         durationHours: SimulationDuration,
                         randomSeed: RandomSeed,
-                        dispatchRule: SelectedDispatchRule
+                        dispatchRule: SelectedDispatchRule,
+                        machineConfigs: MachineConfigurations.Select(wc => new MachineConfiguration
+                        {
+                            Name = wc.MachineName,
+                            BufferCapacity = wc.BufferCapacity,
+                            DispatchingRule = SelectedDispatchRule,
+                            Quantity = wc.Quantity
+                        }).ToList()
                     )
                 );
-
                 if (result.Success)
                 {
                     StatusMessage = $"✓ Completed! Throughput: {result.Statistics?.Throughput:F2} parts/hr";

@@ -299,10 +299,10 @@
             </TabItem>
 
             <!-- Gantt Chart Tab -->
-            <TabItem Header="Gantt Chart">
-                <Grid>
-                    <controls:GanttChartViewer x:Name="ganttChartViewer"/>
-                </Grid>
+
+            <!-- Factory Layout Tab - NEW -->
+            <TabItem Header="Factory Layout">
+                <controls:FactoryLayoutView/>
             </TabItem>
 
             <!-- Analytics Tab -->

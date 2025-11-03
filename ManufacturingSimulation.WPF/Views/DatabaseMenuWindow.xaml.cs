@@ -25,5 +25,17 @@ namespace ManufacturingSimulation.WPF.Views
         {
             Close();
         }
+        private void FactoryLayout_Click(object sender, RoutedEventArgs e)
+        {
+            var layoutWindow = new Window
+            {
+                Title = "Factory Layout Editor",
+                Content = new FactoryLayoutView(),
+                Width = 1200,
+                Height = 700,
+                WindowStartupLocation = WindowStartupLocation.CenterScreen
+            };
+            layoutWindow.ShowDialog();
+        }
     }
 }

@@ -4,7 +4,7 @@ using System.Linq;
 using ManufacturingSimulation.Core;
 using ManufacturingSimulation.Core.Models;
 using ManufacturingSimulation.Database.Models;
-
+using Machine = ManufacturingSimulation.Core.Models.Machine;
 namespace ManufacturingSimulation.Bridge
 {
     /// <summary>

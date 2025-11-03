@@ -23,12 +23,18 @@ namespace ManufacturingSimulation.Database
         // Work Centers & Routing
         public DbSet<WorkCenter> WorkCenters { get; set; }
         public DbSet<Routing> Routings { get; set; }
-        
+
         // Production Orders (you'll add this table to your schema)
         public DbSet<ProductionOrder> ProductionOrders { get; set; }
-        
+
+        // Factory Layout
+        public DbSet<Machine> Machines { get; set; }
+        public DbSet<MachineLocation> MachineLocations { get; set; }
+        public DbSet<MachineDistance> MachineDistances { get; set; }
+
         // Simulation Integration
         public DbSet<SimulationScenario> SimulationScenarios { get; set; }
+        public DbSet<SimulationScenarioOrder> SimulationScenarioOrders { get; set; }
         public DbSet<SimulationEvent> SimulationEvents { get; set; }
         public DbSet<SimulationRun> SimulationRuns { get; set; }
         public DbSet<SimulationResult> SimulationResults { get; set; }

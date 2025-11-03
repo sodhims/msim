@@ -1,7 +1,7 @@
 <Window x:Class="ManufacturingSimulation.WPF.Views.DatabaseMenuWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="MES Database Manager" Height="400" Width="500"
+        Title="MES Database Manager" Height="500" Width="500"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize">
     <Grid Background="#F5F5F5">
@@ -9,7 +9,6 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
-
         <!-- Header -->
         <Border Grid.Row="0" Background="#2196F3" Padding="20">
             <StackPanel>
@@ -24,13 +23,12 @@
                            Margin="0,5,0,0"/>
             </StackPanel>
         </Border>
-
         <!-- Menu Buttons -->
         <StackPanel Grid.Row="1" 
                     VerticalAlignment="Center" 
                     HorizontalAlignment="Center" 
                     Margin="20">
-            
+
             <Button Click="ManageOrders_Click" 
                     Height="70" 
                     Width="350" 
@@ -67,6 +65,28 @@
                                    FontWeight="Bold"
                                    Foreground="#4CAF50"/>
                         <TextBlock Text="Select orders and run predictive simulation" 
+                                   FontSize="11" 
+                                   Foreground="Gray"/>
+                    </StackPanel>
+                </StackPanel>
+            </Button>
+
+            <!-- NEW: Factory Layout Button -->
+            <Button Click="FactoryLayout_Click" 
+                    Height="70" 
+                    Width="350" 
+                    Margin="0,0,0,15"
+                    Background="White"
+                    BorderBrush="#FF9800"
+                    BorderThickness="2">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="🏭" FontSize="30" Margin="0,0,15,0"/>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Factory Layout" 
+                                   FontSize="16" 
+                                   FontWeight="Bold"
+                                   Foreground="#FF9800"/>
+                        <TextBlock Text="Design machine placement and distances" 
                                    FontSize="11" 
                                    Foreground="Gray"/>
                     </StackPanel>

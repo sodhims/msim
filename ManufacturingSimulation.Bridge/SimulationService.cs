@@ -1,13 +1,14 @@
+using ManufacturingSimulation.Core;
+using ManufacturingSimulation.Core.Configuration;
+using ManufacturingSimulation.Core.Models;
+using ManufacturingSimulation.Database;
+using ManufacturingSimulation.Database.Models;
+using ManufacturingSimulation.Database.Repositories;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text.Json;
-using ManufacturingSimulation.Core;
-using ManufacturingSimulation.Core.Models;
-using ManufacturingSimulation.Database;
-using ManufacturingSimulation.Database.Models;
-using ManufacturingSimulation.Database.Repositories;
 
 namespace ManufacturingSimulation.Bridge
 {
@@ -23,10 +24,11 @@ namespace ManufacturingSimulation.Bridge
 
         public SimulationService(MesDbContext context)
         {
-            _db = context;  // ADD THIS
+            _db = context;
             _repository = new SimulationRepository(context);
             _mapper = new MesToSimulationMapper();
         }
+
         public SimulationService(SimulationRepository repository)
         {
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
@@ -36,7 +38,7 @@ namespace ManufacturingSimulation.Bridge
         /// <summary>
         /// Run a simulation scenario
         /// </summary>
-        public SimulationRunResult RunScenario(int scenarioId, int studentId, List<int> orderIds)
+        public SimulationRunResult RunScenario(int scenarioId, int studentId, List<int> orderIds, List<MachineConfiguration> machineConfigs = null)
         {
             var stopwatch = Stopwatch.StartNew();
             int runId = 0;
@@ -74,12 +76,28 @@ namespace ManufacturingSimulation.Bridge
                 var logger = new SimulationEventLogger(runId, _db);
                 engine.SetEventLogger(logger);
 
-                // 5. Add machines (work centers)
-                foreach (var wc in workCenters)
+                // 5. Add machines - USE UI CONFIG IF PROVIDED
+                if (machineConfigs != null && machineConfigs.Any())
                 {
-                    var machine = _mapper.MapToMachine(wc);
-                    int bufferCapacity = _mapper.CalculateBufferCapacity(wc);
-                    engine.AddMachine(machine, bufferCapacity);
+                    foreach (var machineConfig in machineConfigs)
+                    {
+                        var wc = workCenters.FirstOrDefault(w => w.WorkCenterName == machineConfig.Name);
+                        if (wc != null)
+                        {
+                            var machine = _mapper.MapToMachine(wc);
+                            engine.AddMachine(machine, machineConfig.BufferCapacity);
+                        }
+                    }
+                }
+                else
+                {
+                    // Fallback to database values
+                    foreach (var wc in workCenters)
+                    {
+                        var machine = _mapper.MapToMachine(wc);
+                        int bufferCapacity = _mapper.CalculateBufferCapacity(wc);
+                        engine.AddMachine(machine, bufferCapacity);
+                    }
                 }
 
                 // 6. Schedule parts (from production orders)
@@ -174,27 +192,17 @@ namespace ManufacturingSimulation.Bridge
             double durationHours,
             int randomSeed,
             string dispatchRule = "FIFO",
-            int numMachines = 5,
-            int bufferCapacity = 10)
+            List<MachineConfiguration> machineConfigs = null)
         {
-            // Create temporary scenario
             var scenario = new SimulationScenario
             {
                 StudentId = studentId,
-                ScenarioName = $"Quick Run {DateTime.Now:yyyy-MM-dd HH:mm} | {dispatchRule} | {numMachines} machines",
+                ScenarioName = $"Quick Run {DateTime.Now:yyyy-MM-dd HH:mm} | {dispatchRule}",
                 SimulationDurationHours = durationHours,
-                RandomSeed = randomSeed,
-                //Configuration = JsonSerializer.Serialize(new
-                //{
-                //    DispatchRule = dispatchRule,
-                //    NumMachines = numMachines,
-                //    BufferCapacity = bufferCapacity
-                //})
+                RandomSeed = randomSeed
             };
-
             int scenarioId = _repository.CreateScenario(scenario);
-
-            return RunScenario(scenarioId, studentId, orderIds);
+            return RunScenario(scenarioId, studentId, orderIds, machineConfigs);
         }
 
         /// <summary>
@@ -253,8 +261,6 @@ namespace ManufacturingSimulation.Bridge
         /// <summary>
         /// Get all runs for a scenario
         /// </summary>
-        /// 
-
         public List<SimulationRun> GetScenarioRuns(int scenarioId)
         {
             return _repository.GetRunsForScenario(scenarioId);
@@ -300,7 +306,6 @@ namespace ManufacturingSimulation.Bridge
         public SimulationRunSummary BestThroughput { get; set; }
         public SimulationRunSummary BestFlowTime { get; set; }
         public SimulationRunSummary BestUtilization { get; set; }
-
     }
 
     #endregion
