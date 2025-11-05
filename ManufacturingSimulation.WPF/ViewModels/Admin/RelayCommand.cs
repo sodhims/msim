@@ -1,12 +1,10 @@
 using System;
 using System.Windows.Input;
 
-namespace ManufacturingSimulation.WPF.ViewModels
+namespace ManufacturingSimulation.WPF.ViewModels.Admin
 {
     /// <summary>
-    /// A command whose sole purpose is to relay its functionality to other
-    /// objects by invoking delegates. The default return value for the CanExecute
-    /// method is 'true'.
+    /// A command whose sole purpose is to relay its functionality to other objects by invoking delegates.
     /// </summary>
     public class RelayCommand : ICommand
     {
@@ -19,7 +17,11 @@ namespace ManufacturingSimulation.WPF.ViewModels
             _canExecute = canExecute;
         }
 
-        public event EventHandler CanExecuteChanged;
+        public event EventHandler CanExecuteChanged
+        {
+            add { CommandManager.RequerySuggested += value; }
+            remove { CommandManager.RequerySuggested -= value; }
+        }
 
         public bool CanExecute(object parameter)
         {
@@ -33,14 +35,12 @@ namespace ManufacturingSimulation.WPF.ViewModels
 
         public void RaiseCanExecuteChanged()
         {
-            CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+            CommandManager.InvalidateRequerySuggested();
         }
     }
 
     /// <summary>
-    /// A generic command whose sole purpose is to relay its functionality to other
-    /// objects by invoking delegates. The default return value for the CanExecute
-    /// method is 'true'.
+    /// A generic command whose sole purpose is to relay its functionality to other objects by invoking delegates.
     /// </summary>
     public class RelayCommand<T> : ICommand
     {
@@ -53,27 +53,39 @@ namespace ManufacturingSimulation.WPF.ViewModels
             _canExecute = canExecute;
         }
 
-        public event EventHandler CanExecuteChanged;
+        public event EventHandler CanExecuteChanged
+        {
+            add { CommandManager.RequerySuggested += value; }
+            remove { CommandManager.RequerySuggested -= value; }
+        }
 
         public bool CanExecute(object parameter)
         {
-            if (_canExecute == null)
-                return true;
-
+            if (_canExecute == null) return true;
+            
             if (parameter == null && typeof(T).IsValueType)
-                return false;
+            {
+                return _canExecute(default(T));
+            }
 
             return _canExecute((T)parameter);
         }
 
         public void Execute(object parameter)
         {
-            _execute((T)parameter);
+            if (parameter == null && typeof(T).IsValueType)
+            {
+                _execute(default(T));
+            }
+            else
+            {
+                _execute((T)parameter);
+            }
         }
 
         public void RaiseCanExecuteChanged()
         {
-            CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+            CommandManager.InvalidateRequerySuggested();
         }
     }
 }

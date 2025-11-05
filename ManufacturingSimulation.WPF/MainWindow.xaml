@@ -129,6 +129,20 @@
                 <MenuItem Header="_Documentation" Click="MenuDocumentation_Click"/>
                 <MenuItem Header="_About" Click="MenuAbout_Click"/>
             </MenuItem>
+            <MenuItem Header="Orders">
+                <MenuItem Header="Manage Production Orders" Click="ManageOrders_Click"/>
+                <Separator/>
+            </MenuItem>
+            <MenuItem Header="Tools">
+                <MenuItem Header="Routing">
+                    <MenuItem Header="Routing Management" Click="RoutingManagement_Click"/>
+                </MenuItem>
+                <MenuItem Header="Database Administration" 
+                            Click="DatabaseAdmin_Click"
+                            Icon="{StaticResource DatabaseIcon}"/>
+                    <MenuItem Header="Simulation Runner"/>
+                    <MenuItem Header="Factory Layout"/>
+                </MenuItem>
         </Menu>
 
         <!-- Main Content -->

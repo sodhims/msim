@@ -3,15 +3,32 @@ using ManufacturingSimulation.Core.Configuration;
 using ManufacturingSimulation.Core.Engine;
 using ManufacturingSimulation.Core.Engine.Events;
 using ManufacturingSimulation.Core.Models;
+using ManufacturingSimulation.Database;
+using ManufacturingSimulation.Database.Models;
+using ManufacturingSimulation.WPF.Services;
+using ManufacturingSimulation.WPF.ViewModels;
+using ManufacturingSimulation.WPF.ViewModels.Admin;
+using ManufacturingSimulation.WPF.Views;
+using ManufacturingSimulation.WPF.Views.Admin;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Win32;
 using System;
+using System.Collections.Generic;  // ← ADDED
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading.Tasks;  // ← ADDED
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using CoreMachine = ManufacturingSimulation.Core.Models.Machine;
+using CoreSimEvent = ManufacturingSimulation.Core.Engine.SimulationEvent;
+using DbMachine = ManufacturingSimulation.Database.Models.Machine;
+using DbSimEvent = ManufacturingSimulation.Database.Models.SimulationEvent;
+using ManufacturingSimulation.Database;
+using ManufacturingSimulation.Database.Models;
+using ManufacturingSimulation.WPF.Views;
 
 namespace ManufacturingSimulation.WPF
 {
@@ -25,10 +42,15 @@ namespace ManufacturingSimulation.WPF
 
         private ObservableCollection<ResourceUtilizationInfo> _resourceUtilization;
         private ObservableCollection<string> _eventLog;
+        private List<ProductionOrder> _selectedOrders;
+
+        private MesDbContext _context;
+        private Student _currentStudent;
 
         public MainWindow()
         {
             InitializeComponent();
+            _context = new MesDbContext();
             InitializeCollections();
             InitializeTimer();
             LoadDefaultConfiguration();
@@ -88,68 +110,89 @@ namespace ManufacturingSimulation.WPF
                 }
                 if (_isRunning) return;
 
-                // Initialize engine with random seed from config
-                _engine = new SimulationEngine(_config.RandomSeed);
+                // READ PARAMETERS FROM UI FIRST
+                ApplySimulationParameters();
 
-                // Subscribe to simulation events for logging
+                // LOG THE ACTUAL VALUES BEING USED
+                LogEvent($">>> CONFIG VALUES: Duration={_config.RunLength}, Parts={_config.NumberOfParts}, Seed={_config.RandomSeed}");
+
+                // Initialize engine
+                _engine = new SimulationEngine(_config.RandomSeed);
                 _engine.EventProcessed += OnSimulationEventProcessed;
 
-                // Configure machines from config
+                // Configure machines
                 foreach (var machineConfig in _config.Machines)
                 {
-                    // Machine constructor expects IDispatchingRule, not string
-                    // Pass null to use default FIFO rule
-                    var machine = new Machine(
-                        machineConfig.Id,
-                        machineConfig.Name,
-                        null); // Will use default dispatching rule
+                    var machine = new CoreMachine(machineConfig.Id, machineConfig.Name, null);
                     _engine.AddMachine(machine, machineConfig.BufferCapacity);
-                    LogEvent($"Added machine: {machine.Name} (Buffer: {machineConfig.BufferCapacity}, Rule: {machineConfig.DispatchingRule})");
+                    LogEvent($"Added machine: {machine.Name} (Buffer: {machineConfig.BufferCapacity})");
                 }
 
-                // Generate and schedule part arrivals
-                var arrivalDistribution = _config.GetArrivalDistribution();
-                var random = new Random(_config.RandomSeed);
-                double currentArrivalTime = 0;
-
-                for (int i = 0; i < _config.NumberOfParts; i++)
+                // Generate parts - either from selected orders OR default generation
+                if (_selectedOrders != null && _selectedOrders.Count > 0)
                 {
-                    // Generate inter-arrival time
-                    double interArrivalTime = arrivalDistribution.Sample(random);
-                    currentArrivalTime += interArrivalTime;
+                    LogEvent($"=== Generating parts from {_selectedOrders.Count} production orders ===");
 
-                    // Create part with standard route (id must be string)
-                    var part = new Part(
-                        $"Part-{i + 1}",                          // id (string)
-                        new List<int>(_config.StandardRoute),    // route
-                        currentArrivalTime);                      // arrivalTime
+                    int partId = 1;
+                    var random = new Random(_config.RandomSeed);
+                    double currentArrivalTime = 0;
 
-                    _engine.SchedulePartArrival(part, currentArrivalTime);
+                    foreach (var order in _selectedOrders)
+                    {
+                        LogEvent($"Order {order.OrderNumber}: {order.Product?.ProductName ?? "Unknown"} x{order.Quantity}");
+
+                        for (int i = 0; i < order.Quantity; i++)
+                        {
+                            double interArrivalTime = _config.GetArrivalDistribution().Sample(random);
+                            currentArrivalTime += interArrivalTime;
+
+                            var part = new Part(
+                                $"{order.OrderNumber}-Part{i + 1}",  // ← This includes order number
+                                new List<int>(_config.StandardRoute),
+                                currentArrivalTime);
+
+                            _engine.SchedulePartArrival(part, currentArrivalTime);
+                            partId++;
+                        }
+                    }
+
+                    LogEvent($"Scheduled {partId - 1} parts from {_selectedOrders.Count} orders");
                 }
+                else
+                {
+                    // DEFAULT GENERATION (no orders selected)
+                    LogEvent("=== Generating parts using default parameters ===");
 
-                LogEvent($"Scheduled {_config.NumberOfParts} parts with arrival distribution: {_config.ArrivalDistributionType}");
+                    var arrivalDistribution = _config.GetArrivalDistribution();
+                    var random = new Random(_config.RandomSeed);
+                    double currentArrivalTime = 0;
+
+                    for (int i = 0; i < _config.NumberOfParts; i++)
+                    {
+                        double interArrivalTime = arrivalDistribution.Sample(random);
+                        currentArrivalTime += interArrivalTime;
+                        var part = new Part($"Part-{i + 1}", new List<int>(_config.StandardRoute), currentArrivalTime);
+                        _engine.SchedulePartArrival(part, currentArrivalTime);
+                    }
+
+                    LogEvent($"Scheduled {_config.NumberOfParts} parts");
+                }
 
                 _isRunning = true;
                 _uiUpdateTimer.Start();
                 UpdateControlStates(true);
                 UpdateStatus("Started");
-                LogEvent("=== Simulation Started ===");
 
-                // Start simulation in background thread
-                double duration = _config.RunLength; // Use config default
+                // Use the updated duration
+                double duration = _config.RunLength;
 
-                // Allow UI override if specified
-                if (double.TryParse(txtDuration.Text, out double uiDuration) && uiDuration > 0)
-                {
-                    duration = uiDuration;
-                }
-
-                LogEvent($"Starting simulation: Duration={duration}, Parts={_config.NumberOfParts}, Seed={_config.RandomSeed}");
+                LogEvent($"=== STARTING SIMULATION: DURATION = {duration} HOURS ===");
 
                 Task.Run(() =>
                 {
                     try
                     {
+                        LogEvent($"Engine.RunUntil({duration}) called...");
                         _engine.RunUntil(duration);
                         Dispatcher.Invoke(() => OnSimulationCompleted());
                     }
@@ -165,7 +208,6 @@ namespace ManufacturingSimulation.WPF
                 StopSimulation();
             }
         }
-
         private void PauseSimulation()
         {
             if (!_isRunning || _isPaused) return;
@@ -207,16 +249,27 @@ namespace ManufacturingSimulation.WPF
         {
             try
             {
-                double.TryParse(txtDuration.Text, out double duration);
-                int.TryParse(txtNumberOfJobs.Text, out int numJobs);
-                LogEvent($"Parameters: Duration={duration}h, Jobs={numJobs}");
+                // Read duration from UI
+                if (double.TryParse(txtDuration.Text, out double duration) && duration > 0)
+                {
+                    _config.RunLength = duration;
+                    LogEvent($"Duration set to {duration} hours");
+                }
+
+                // Read number of jobs from UI
+                if (int.TryParse(txtNumberOfJobs.Text, out int numJobs) && numJobs > 0)
+                {
+                    _config.NumberOfParts = numJobs;
+                    LogEvent($"Number of jobs set to {numJobs}");
+                }
+
+                LogEvent($"Parameters applied: Duration={_config.RunLength}h, Jobs={_config.NumberOfParts}");
             }
             catch (Exception ex)
             {
-                ShowError($"Error: {ex.Message}");
+                ShowError($"Error applying parameters: {ex.Message}");
             }
         }
-
         private void UiUpdateTimer_Tick(object sender, EventArgs e)
         {
             if (_engine == null || !_isRunning || _isPaused) return;
@@ -237,13 +290,11 @@ namespace ManufacturingSimulation.WPF
             try
             {
                 var stats = _engine.GetStatistics();
-
                 txtState.Text = _isPaused ? "Paused" : "Running";
                 txtSimTime.Text = FormatTime(stats.CurrentTime);
                 txtJobsCompleted.Text = $"{stats.TotalPartsCompleted} / {stats.TotalPartsArrived}";
                 txtActiveTasks.Text = stats.CurrentWIP.ToString();
 
-                // Calculate overall efficiency
                 double totalUtilization = 0;
                 int machineCount = 0;
                 foreach (var machineStat in stats.MachineStats.Values)
@@ -280,7 +331,6 @@ namespace ManufacturingSimulation.WPF
                 foreach (var machine in _engine.Machines)
                 {
                     var machineStat = stats.MachineStats[machine.Id];
-
                     _resourceUtilization.Add(new ResourceUtilizationInfo
                     {
                         Name = machine.Name,
@@ -302,11 +352,9 @@ namespace ManufacturingSimulation.WPF
             try
             {
                 var stats = _engine.GetStatistics();
-
                 txtThroughput.Text = $"{stats.Throughput:F2} jobs/hr";
                 txtAvgLeadTime.Text = stats.AverageFlowTime > 0 ? $"{stats.AverageFlowTime:F2} hrs" : "N/A";
 
-                // Overall efficiency from machine utilizations
                 double totalUtilization = 0;
                 int machineCount = 0;
                 foreach (var machineStat in stats.MachineStats.Values)
@@ -316,13 +364,9 @@ namespace ManufacturingSimulation.WPF
                 }
                 double avgUtilization = machineCount > 0 ? totalUtilization / machineCount : 0;
                 txtOverallEfficiency.Text = $"{avgUtilization:F2}%";
-
                 txtWIP.Text = stats.CurrentWIP.ToString();
-
-                // On-time delivery (placeholder - you may need to add this to your stats)
                 txtOnTimeDelivery.Text = "N/A";
 
-                // Find bottleneck (machine with highest utilization)
                 string bottleneck = "N/A";
                 double maxUtil = 0;
                 foreach (var kvp in stats.MachineStats)
@@ -349,7 +393,6 @@ namespace ManufacturingSimulation.WPF
             {
                 double progress = (_engine.CurrentTime / _config.RunLength) * 100.0;
                 progress = Math.Min(100, Math.Max(0, progress));
-
                 progressBar.Value = progress;
                 txtProgressStatus.Text = $"Progress: {progress:F1}%";
             }
@@ -381,7 +424,6 @@ namespace ManufacturingSimulation.WPF
             cmbSchedulingMode.IsEnabled = !isRunning;
         }
 
-        // Menu Handlers
         private void MenuNewSimulation_Click(object sender, RoutedEventArgs e)
         {
             if (_isRunning && MessageBox.Show("Stop current simulation?", "Confirm",
@@ -390,30 +432,7 @@ namespace ManufacturingSimulation.WPF
             LoadDefaultConfiguration();
         }
 
-        private void MenuConfigureSystem_Click(object sender, RoutedEventArgs e)
-        {/* commented out for now 
-            var configWindow = new Views.ConfigurationEditorWindow();
-
-            if (configWindow.ShowDialog() == true && configWindow.WasApplied)
-            {
-                _config = configWindow.ResultConfiguration;
-
-                // Update UI to show new config
-                txtConfigEditor.Text = JsonSerializer.Serialize(_config,
-                    new JsonSerializerOptions { WriteIndented = true });
-
-                txtDuration.Text = _config.RunLength.ToString();
-                txtNumberOfJobs.Text = _config.NumberOfParts.ToString();
-
-                UpdateStatus("Configuration updated from editor");
-                LogEvent($"Loaded config: {_config.Machines.Count} machines, {_config.NumberOfParts} parts");
-
-                MessageBox.Show("Configuration applied successfully!", "Success",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-            */
-        }
-
+        private void MenuConfigureSystem_Click(object sender, RoutedEventArgs e) { }
         private void MenuLoadConfig_Click(object sender, RoutedEventArgs e) => LoadConfigurationFromFile();
         private void MenuSaveConfig_Click(object sender, RoutedEventArgs e) => SaveConfigurationToFile();
         private void MenuExportResults_Click(object sender, RoutedEventArgs e) => ExportResults();
@@ -443,7 +462,6 @@ namespace ManufacturingSimulation.WPF
             MessageBox.Show("Manufacturing Simulation System v2.0", "About", MessageBoxButton.OK);
         }
 
-        // Configuration
         private void BtnLoadConfig_Click(object sender, RoutedEventArgs e) => LoadConfigurationFromFile();
         private void BtnSaveConfig_Click(object sender, RoutedEventArgs e) => SaveConfigurationToFile();
         private void BtnLoadFromDb_Click(object sender, RoutedEventArgs e)
@@ -496,7 +514,33 @@ namespace ManufacturingSimulation.WPF
                 catch (Exception ex) { ShowError($"Error: {ex.Message}"); }
             }
         }
+        private void RoutingManagement_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                using var db = new MesDbContext();
 
+                // HARDCODED for development - replace with actual student selection later
+                int hardcodedStudentId = 1;  // ← Change this to match a student in your database
+
+                var student = db.Students.FirstOrDefault(s => s.StudentId == hardcodedStudentId);
+
+                if (student == null)
+                {
+                    MessageBox.Show($"Student with ID {hardcodedStudentId} not found in database.",
+                        "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                var routingWindow = new RoutingManagementWindow(new MesDbContext(), student);
+                routingWindow.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error opening Routing Management: {ex.Message}\n\n{ex.InnerException?.Message}",
+                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
         private void ValidateConfiguration()
         {
             try
@@ -567,27 +611,35 @@ namespace ManufacturingSimulation.WPF
             MessageBox.Show("Simulation Complete!", "Done", MessageBoxButton.OK);
         }
 
-        private void OnSimulationEventProcessed(object sender, SimulationEvent e)
+        private void OnSimulationEventProcessed(object sender, CoreSimEvent e)
         {
-            // Log key events to UI (throttled to avoid overwhelming)
+            // Already using Dispatcher.BeginInvoke - make sure ALL LogEvent calls use it
             if (e is PartArrivalEvent arrival)
             {
-                Dispatcher.BeginInvoke(() => LogEvent($"Part {arrival.Part.Id} arrived at Machine {arrival.Part.GetCurrentMachineId()}"));
+                Dispatcher.BeginInvoke(() =>
+                    LogEvent($"Part {arrival.Part.Id} arrived at Machine {arrival.Part.GetCurrentMachineId()}"));
             }
             else if (e is ProcessingCompleteEvent complete)
             {
-                Dispatcher.BeginInvoke(() => LogEvent($"{complete.Part.Id} completed on {complete.Machine.Name}"));
+                Dispatcher.BeginInvoke(() =>
+                    LogEvent($"{complete.Part.Id} completed on {complete.Machine.Name}"));
             }
         }
 
         private void LogEvent(string message)
         {
-            _eventLog.Add($"[{DateTime.Now:HH:mm:ss.fff}] {message}");
-            if (chkAutoScroll?.IsChecked == true && lstEventLog?.Items.Count > 0)
-                lstEventLog.ScrollIntoView(lstEventLog.Items[lstEventLog.Items.Count - 1]);
-            if (_eventLog.Count > 10000) _eventLog.RemoveAt(0);
-        }
+            // Always use Dispatcher to modify ObservableCollection
+            Dispatcher.Invoke(() =>
+            {
+                _eventLog.Add($"[{DateTime.Now:HH:mm:ss.fff}] {message}");
 
+                if (chkAutoScroll?.IsChecked == true && lstEventLog?.Items.Count > 0)
+                    lstEventLog.ScrollIntoView(lstEventLog.Items[lstEventLog.Items.Count - 1]);
+
+                if (_eventLog.Count > 10000)
+                    _eventLog.RemoveAt(0);
+            });
+        }
         private void UpdateStatus(string message) => txtStatusBar.Text = message;
 
         private void ShowError(string message)
@@ -607,8 +659,104 @@ namespace ManufacturingSimulation.WPF
             StopSimulation();
             _uiUpdateTimer?.Stop();
         }
+
+        private void DatabaseAdmin_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var context = new MesDbContext();
+
+
+                var adminService = new AdminService(context);
+                var viewModel = new DatabaseAdminViewModel(context, adminService, null);
+                var adminWindow = new DatabaseAdminWindow(viewModel);
+                adminWindow.Show();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error: {ex.Message}", "Database Admin Error",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void SeedTestData(MesDbContext context)
+        {
+            var student = new Student
+            {
+                Username = "testuser",
+                PasswordHash = "hash123",
+                FullName = "Test User",
+                Email = "test@example.com",
+                IsActive = true
+            };
+            context.Students.Add(student);
+            context.SaveChanges();
+
+            var product = new Product
+            {
+                StudentId = student.StudentId,
+                ProductNumber = "P001",
+                ProductName = "Test Product",
+                IsActive = true
+            };
+            context.Products.Add(product);
+
+            var workCenter = new WorkCenter
+            {
+                StudentId = student.StudentId,
+                WorkCenterCode = "WC001",
+                WorkCenterName = "Mill",
+                BufferCapacity = 10,
+                IsActive = true
+            };
+            context.WorkCenters.Add(workCenter);
+
+            context.SaveChanges();
+        }
+
+private void ManageOrders_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var context = new MesDbContext();
+                var orderWindow = new Views.OrderManagementWindow(context);
+
+                // Subscribe to simulation request event
+                var viewModel = orderWindow.DataContext as OrderManagementViewModel;
+                if (viewModel != null)
+                {
+                    viewModel.SimulationRequested += OnSimulationRequested;
+                }
+
+                orderWindow.Show();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error opening order management: {ex.Message}",
+                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void OnSimulationRequested(object sender, List<ProductionOrder> selectedOrders)
+        {
+            // Store selected orders for simulation
+            _selectedOrders = selectedOrders;
+
+            // Update UI with order info
+            LogEvent($"=== SIMULATION WITH {selectedOrders.Count} ORDERS ===");
+            foreach (var order in selectedOrders)
+            {
+                LogEvent($"Order {order.OrderNumber}: {order.Product.ProductName} x{order.Quantity}");
+            }
+
+            // Auto-start simulation with these orders
+            MessageBox.Show($"Ready to simulate {selectedOrders.Count} orders!",
+                "Orders Loaded", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
     }
 
+    // ← SUPPORTING CLASS OUTSIDE THE MAIN CLASS
     public class ResourceUtilizationInfo
     {
         public string Name { get; set; }

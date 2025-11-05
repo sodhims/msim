@@ -77,7 +77,7 @@ namespace ManufacturingSimulation.Core.Configuration
             NumberOfParts = 20;
             
             ArrivalDistributionType = "Exponential";
-            ArrivalDistributionParams = new List<double> { 0.5 };  // rate = 0.5, mean = 2.0
+            ArrivalDistributionParams = new List<double> { 10 };  // rate = 0.5, mean = 2.0
             
             ProcessingDistributionType = "Uniform";
             ProcessingDistributionParams = new List<double> { 2.0, 6.0 };  // min, max

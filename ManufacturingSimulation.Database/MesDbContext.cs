@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using Microsoft.EntityFrameworkCore;
 using ManufacturingSimulation.Database.Models;
 
@@ -45,8 +47,10 @@ namespace ManufacturingSimulation.Database
         {
             if (!optionsBuilder.IsConfigured)
             {
-                // Default SQLite connection - change this to PostgreSQL when ready
-optionsBuilder.UseSqlite(@"Data Source=C:\users\sodhi\source\repos\msim\ManufacturingSimulation.Database\mes_training.db");                
+                // Use relative path - looks in the executable's directory
+                var dbPath = @"C:\users\sodhi\source\repos\msim\ManufacturingSimulation.Database\mes_training.db";
+                optionsBuilder.UseSqlite($"Data Source={dbPath}");
+
                 // TO SWITCH TO POSTGRESQL (just uncomment and configure):
                 // optionsBuilder.UseNpgsql("Host=localhost;Database=mes_training;Username=postgres;Password=yourpassword");
             }
@@ -107,6 +111,11 @@ optionsBuilder.UseSqlite(@"Data Source=C:\users\sodhi\source\repos\msim\Manufact
                 }
             }
         }
+        public void EnsureTablesExist()
+        {
+            Database.EnsureCreated(); // Creates all tables if they don't exist
+        }
+
 
         private string ToSnakeCase(string name)
         {

@@ -1,3 +1,4 @@
+using ManufacturingSimulation.Database;
 using System.Windows;
 
 namespace ManufacturingSimulation.WPF.Views
@@ -11,8 +12,8 @@ namespace ManufacturingSimulation.WPF.Views
 
         private void ManageOrders_Click(object sender, RoutedEventArgs e)
         {
-            var window = new OrderManagementWindow();
-            window.ShowDialog();
+            var adminWindow = new OrderManagementWindow(new MesDbContext());
+            adminWindow.ShowDialog();
         }
 
         private void RunSimulation_Click(object sender, RoutedEventArgs e)

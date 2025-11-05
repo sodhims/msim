@@ -1,0 +1,19 @@
+Folder PATH listing for volume c:\users\sodhi\source\repos\msim\manufacturingsimulationwpf\
+Volume serial number is A8B6-2813
+C:.
++---Controls
++---logs
++---msim-admin
+¦   +---Converters
+¦   +---Models
+¦   +---Services
+¦   +---ViewModels
+¦   ¦   +---Admin
+¦   +---Views
+¦   ¦   +---Admin
+¦   +---{Views
+¦       +---Admin,ViewModels
+¦           +---Admin,Services,Models}
++---Utilities
++---ViewModels
++---Views

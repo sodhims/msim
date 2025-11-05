@@ -1,134 +1,243 @@
 <Window x:Class="ManufacturingSimulation.WPF.Views.OrderManagementWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Production Order Management" Height="600" Width="1000"
-        WindowStartupLocation="CenterScreen">
-    <Grid Margin="10">
+        Title="Production Order Management" 
+        Height="700" Width="1200"
+        WindowStartupLocation="CenterScreen"
+        Background="#F5F5F5">
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="PrimaryBrush" Color="#2196F3"/>
+        <SolidColorBrush x:Key="AccentBrush" Color="#4CAF50"/>
+        <SolidColorBrush x:Key="DangerBrush" Color="#F44336"/>
+        
+        <Style x:Key="ModernButton" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource PrimaryBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <TextBlock Grid.Row="0" Text="Production Orders" 
-                   FontSize="24" FontWeight="Bold" Margin="0,0,0,10"/>
+        <Border Grid.Row="0" Background="{StaticResource PrimaryBrush}" Padding="20,15">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Production Order Management" 
+                               FontSize="24" 
+                               FontWeight="Bold" 
+                               Foreground="White"/>
+                    <TextBlock Text="Select orders to include in simulation" 
+                               FontSize="13" 
+                               Foreground="White" 
+                               Opacity="0.9"
+                               Margin="0,5,0,0"/>
+                </StackPanel>
 
-        <!-- Filters -->
-        <Grid Grid.Row="1" Margin="0,0,0,10">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="200"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Total: " Foreground="White" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding TotalOrders}" 
+                               Foreground="White" 
+                               FontWeight="Bold"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Text=" | Pending: " Foreground="White" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    <TextBlock Text="{Binding PendingOrderCount}" 
+                               Foreground="White" 
+                               FontWeight="Bold"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+            </Grid>
+        </Border>
 
-            <TextBox Grid.Column="0" 
-                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                     VerticalContentAlignment="Center"
-                     Padding="5"
-                     Height="30">
-                <TextBox.Style>
-                    <Style TargetType="TextBox">
-                        <Style.Triggers>
-                            <Trigger Property="Text" Value="">
-                                <Setter Property="Background">
-                                    <Setter.Value>
-                                        <VisualBrush Stretch="None" AlignmentX="Left">
-                                            <VisualBrush.Visual>
-                                                <TextBlock Text="Search orders..." 
-                                                          Foreground="Gray" 
-                                                          Margin="5,0,0,0"/>
-                                            </VisualBrush.Visual>
-                                        </VisualBrush>
-                                    </Setter.Value>
-                                </Setter>
-                            </Trigger>
-                        </Style.Triggers>
-                    </Style>
-                </TextBox.Style>
-            </TextBox>
+        <!-- Toolbar -->
+        <Border Grid.Row="1" Margin="0,10,0,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
 
-            <ComboBox Grid.Column="1" 
-                      ItemsSource="{Binding StatusOptions}"
-                      SelectedItem="{Binding StatusFilter}"
-                      Height="30"
-                      Margin="10,0,0,0"
-                      VerticalContentAlignment="Center"/>
+                <!-- Action Buttons -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="15,0,15,10">
+                    <Button Content="➕ Add Order" 
+                            Command="{Binding AddOrderCommand}"
+                            Style="{StaticResource ModernButton}"/>
+                    <Button Content="✏️ Edit" 
+                            Command="{Binding EditOrderCommand}"
+                            Style="{StaticResource ModernButton}"/>
+                    <Button Content="🗑️ Delete" 
+                            Command="{Binding DeleteOrderCommand}"
+                            Style="{StaticResource ModernButton}"
+                            Background="{StaticResource DangerBrush}"/>
+                    <Button Content="❌ Cancel Order" 
+        Command="{Binding DeleteOrderCommand}"
+        Style="{StaticResource ModernButton}"
+        Background="Orange"/>
+                    <Button Content="🔄 Refresh" 
+                            Command="{Binding RefreshCommand}"
+                            Style="{StaticResource ModernButton}"/>
+                    
+                    <Separator Width="20" Background="Transparent"/>
+                    
+                    <CheckBox Content="Show Completed Orders" 
+                              IsChecked="{Binding ShowCompletedOrders}"
+                              VerticalAlignment="Center"
+                              Margin="10,0"/>
+                </StackPanel>
 
-            <Button Grid.Column="2" 
-                    Content="🔄 Refresh" 
-                    Command="{Binding RefreshCommand}"
-                    Width="100" 
-                    Height="30" 
-                    Margin="10,0,0,0"/>
-        </Grid>
+                <!-- Orders Grid -->
+                <DataGrid x:Name="ordersDataGrid"
+                          Grid.Row="1" 
+                          ItemsSource="{Binding Orders}"
+                          SelectedItem="{Binding SelectedOrder}"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          SelectionMode="Extended"
+                          AlternatingRowBackground="#F9F9F9"
+                          GridLinesVisibility="Horizontal"
+                          HeadersVisibility="Column"
+                          Margin="15,0,15,10">
 
-        <!-- Orders DataGrid -->
-        <DataGrid Grid.Row="2" 
-                  ItemsSource="{Binding Orders}"
-                  SelectedItem="{Binding SelectedOrder}"
-                  AutoGenerateColumns="False"
-                  IsReadOnly="True"
-                  SelectionMode="Single"
-                  CanUserAddRows="False"
-                  CanUserDeleteRows="False"
-                  GridLinesVisibility="Horizontal"
-                  AlternatingRowBackground="#F5F5F5">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="Order #" Binding="{Binding OrderNumber}" Width="120"/>
-                <DataGridTextColumn Header="Product" Binding="{Binding Product.ProductName}" Width="*"/>
-                <DataGridTextColumn Header="Quantity" Binding="{Binding Quantity}" Width="80"/>
-                <DataGridTextColumn Header="Due Date" Binding="{Binding DueDate, StringFormat=\{0:yyyy-MM-dd\}}" Width="100"/>
-                <DataGridTextColumn Header="Priority" Binding="{Binding Priority}" Width="80"/>
-                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock">
-                            <Style.Triggers>
-                                <Trigger Property="Text" Value="Completed">
-                                    <Setter Property="Foreground" Value="Green"/>
-                                    <Setter Property="FontWeight" Value="Bold"/>
-                                </Trigger>
-                                <Trigger Property="Text" Value="Released">
-                                    <Setter Property="Foreground" Value="Blue"/>
-                                </Trigger>
-                                <Trigger Property="Text" Value="Cancelled">
-                                    <Setter Property="Foreground" Value="Red"/>
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </DataGridTextColumn.ElementStyle>
-                </DataGridTextColumn>
-                <DataGridTextColumn Header="Created" Binding="{Binding CreatedDate, StringFormat=\{0:yyyy-MM-dd\}}" Width="100"/>
-            </DataGrid.Columns>
-        </DataGrid>
+                    <DataGrid.Columns>
 
-        <!-- Buttons -->
-        <StackPanel Grid.Row="3" 
-                    Orientation="Horizontal" 
-                    HorizontalAlignment="Right" 
-                    Margin="0,10,0,0">
-            <Button Content="➕ Add Order" 
-                    Command="{Binding AddCommand}"
-                    Width="120" 
-                    Height="35" 
-                    Margin="0,0,10,0"
-                    Background="#4CAF50"
-                    Foreground="White"
-                    FontWeight="Bold"/>
-            <Button Content="✏️ Edit" 
-                    Command="{Binding EditCommand}"
-                    Width="100" 
-                    Height="35" 
-                    Margin="0,0,10,0"
-                    Background="#2196F3"
-                    Foreground="White"/>
-            <Button Content="🗑️ Delete" 
-                    Command="{Binding DeleteCommand}"
-                    Width="100" 
-                    Height="35"
-                    Background="#F44336"
-                    Foreground="White"/>
-        </StackPanel>
+                        <DataGridTextColumn Header="Order #" 
+                                            Binding="{Binding OrderNumber}" 
+                                            Width="120"
+                                            IsReadOnly="True"/>
+                        
+                        <DataGridTextColumn Header="Product" 
+                                            Binding="{Binding Product.ProductName}" 
+                                            Width="200"
+                                            IsReadOnly="True"/>
+                        
+                        <DataGridTextColumn Header="Quantity" 
+                                            Binding="{Binding Quantity}" 
+                                            Width="100"
+                                            IsReadOnly="True"/>
+                        
+                        <DataGridTextColumn Header="Due Date" 
+                                            Binding="{Binding DueDate, StringFormat=\{0:yyyy-MM-dd\}}" 
+                                            Width="120"
+                                            IsReadOnly="True"/>
+                        
+                        <DataGridTextColumn Header="Priority" 
+                                            Binding="{Binding Priority}" 
+                                            Width="80"
+                                            IsReadOnly="True"/>
+                        
+                        <DataGridTextColumn Header="Status" 
+                                            Binding="{Binding Status}" 
+                                            Width="120"
+                                            IsReadOnly="True">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <Trigger Property="Text" Value="Pending">
+                                            <Setter Property="Foreground" Value="Orange"/>
+                                            <Setter Property="FontWeight" Value="Bold"/>
+                                        </Trigger>
+                                        <Trigger Property="Text" Value="In Progress">
+                                            <Setter Property="Foreground" Value="Blue"/>
+                                            <Setter Property="FontWeight" Value="Bold"/>
+                                        </Trigger>
+                                        <Trigger Property="Text" Value="Completed">
+                                            <Setter Property="Foreground" Value="Green"/>
+                                            <Setter Property="FontWeight" Value="Bold"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        
+                        <DataGridTextColumn Header="Created" 
+                                            Binding="{Binding CreatedDate, StringFormat=\{0:yyyy-MM-dd\}}" 
+                                            Width="120"
+                                            IsReadOnly="True"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
+
+        <!-- Selection Actions -->
+        <Border Grid.Row="2" 
+                Background="White" 
+                BorderBrush="#E0E0E0" 
+                BorderThickness="0,1,0,1"
+                Padding="15,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <TextBlock Text="Selected Orders: " 
+                               FontWeight="Bold" 
+                               VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding SelectedOrderCount}" 
+                               FontWeight="Bold" 
+                               Foreground="{StaticResource PrimaryBrush}"
+                               FontSize="16"
+                               VerticalAlignment="Center"
+                               Margin="5,0,0,0"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Content="Select All Pending" 
+                            Command="{Binding SelectAllCommand}"
+                            Style="{StaticResource ModernButton}"
+                            Background="Gray"/>
+                    <Button Content="Clear Selection" 
+                            Command="{Binding ClearSelectionCommand}"
+                            Style="{StaticResource ModernButton}"
+                            Background="Gray"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Bottom Actions -->
+        <Border Grid.Row="3" Background="#263238" Padding="15,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" 
+                           Text="{Binding StatusMessage}" 
+                           Foreground="White"
+                           VerticalAlignment="Center"/>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Content="▶️ Run Simulation with Selected Orders" 
+                            Command="{Binding RunSimulationCommand}"
+                            Style="{StaticResource ModernButton}"
+                            Background="{StaticResource AccentBrush}"
+                            FontSize="14"
+                            Padding="20,10"/>
+                    <Button Content="Close" 
+                            Click="Close_Click"
+                            Style="{StaticResource ModernButton}"
+                            Background="Gray"/>
+                </StackPanel>
+            </Grid>
+        </Border>
     </Grid>
 </Window>

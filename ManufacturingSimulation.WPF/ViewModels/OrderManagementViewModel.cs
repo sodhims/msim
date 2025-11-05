@@ -1,324 +1,447 @@
-using ManufacturingSimulation.WPF.Views;
-using System;
+﻿using ManufacturingSimulation.Database;
+using ManufacturingSimulation.Database.Models;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Windows;
 using System.Windows.Input;
-using Microsoft.EntityFrameworkCore;
-using ManufacturingSimulation.Database;
-using ManufacturingSimulation.Database.Models;
 
 namespace ManufacturingSimulation.WPF.ViewModels
 {
     public class OrderManagementViewModel : INotifyPropertyChanged
     {
-        private readonly MesDbContext _db;
+        private readonly MesDbContext _context;
+        private ObservableCollection<ProductionOrder> _orders;
         private ProductionOrder _selectedOrder;
-        private string _searchText;
-        private string _statusFilter;
+        private ObservableCollection<Product> _availableProducts;
+        private string _statusMessage;
+        private bool _showCompletedOrders = false;
+        private List<ProductionOrder> _currentlySelectedOrders = new List<ProductionOrder>(); // ← ADD THIS
 
-        public ObservableCollection<ProductionOrder> Orders { get; set; }
-        public ObservableCollection<Product> Products { get; set; }
-        public ObservableCollection<string> StatusOptions { get; set; }
+
+        public OrderManagementViewModel(MesDbContext context)
+        {
+            _context = context;
+            Orders = new ObservableCollection<ProductionOrder>();
+            AvailableProducts = new ObservableCollection<Product>();
+            SelectedOrders = new ObservableCollection<ProductionOrder>();
+            
+            InitializeCommands();
+            _ = LoadDataAsync();
+        }
+
+        #region Properties
+
+        public ObservableCollection<ProductionOrder> Orders
+        {
+            get => _orders;
+            set => SetProperty(ref _orders, value);
+        }
+
+        public ObservableCollection<ProductionOrder> SelectedOrders { get; set; }
 
         public ProductionOrder SelectedOrder
         {
             get => _selectedOrder;
+            set => SetProperty(ref _selectedOrder, value);
+        }
+
+        public ObservableCollection<Product> AvailableProducts
+        {
+            get => _availableProducts;
+            set => SetProperty(ref _availableProducts, value);
+        }
+
+        public string StatusMessage
+        {
+            get => _statusMessage;
+            set => SetProperty(ref _statusMessage, value);
+        }
+
+        public bool ShowCompletedOrders
+        {
+            get => _showCompletedOrders;
             set
             {
-                _selectedOrder = value;
-                OnPropertyChanged(nameof(SelectedOrder));
-                OnPropertyChanged(nameof(CanEdit));
+                if (SetProperty(ref _showCompletedOrders, value))
+                {
+                    _ = LoadOrdersAsync();
+                }
             }
         }
 
-        public string SearchText
+        public int TotalOrders => Orders.Count;
+        public int SelectedOrderCount => _currentlySelectedOrders?.Count ?? 0;  
+        public int PendingOrderCount => Orders.Count(o => o.Status == "Pending");
+
+        #endregion
+
+        #region Commands
+        public void SetSelectedOrders(List<ProductionOrder> selectedOrders)
         {
-            get => _searchText;
-            set
+            _currentlySelectedOrders = selectedOrders ?? new List<ProductionOrder>();
+        }
+        public ICommand AddOrderCommand { get; private set; }
+        public ICommand EditOrderCommand { get; private set; }
+        public ICommand DeleteOrderCommand { get; private set; }
+        public ICommand RefreshCommand { get; private set; }
+        public ICommand SelectAllCommand { get; private set; }
+        public ICommand ClearSelectionCommand { get; private set; }
+        public ICommand RunSimulationCommand { get; private set; }
+
+        private void InitializeCommands()
+        {
+            AddOrderCommand = new RelayCommand(async () => await AddOrderAsync());
+            EditOrderCommand = new RelayCommand(async () => await EditOrderAsync());
+            DeleteOrderCommand = new RelayCommand(async () => await DeleteOrderAsync());
+            RefreshCommand = new RelayCommand(async () => await LoadOrdersAsync());
+//            SelectAllCommand = new RelayCommand(SelectAllOrders);
+//            ClearSelectionCommand = new RelayCommand(ClearSelection);
+            RunSimulationCommand = new RelayCommand(RunSimulation);
+        }
+
+        #endregion
+
+        #region Data Loading
+
+        private async Task LoadDataAsync()
+        {
+            await LoadProductsAsync();
+            await LoadOrdersAsync();
+        }
+
+        private async Task LoadProductsAsync()
+        {
+            try
             {
-                _searchText = value;
-                OnPropertyChanged(nameof(SearchText));
-                FilterOrders();
+                var products = await _context.Products
+                    .Where(p => p.IsActive == true)
+                    .OrderBy(p => p.ProductName)
+                    .ToListAsync();
+
+                AvailableProducts.Clear();
+                foreach (var product in products)
+                {
+                    AvailableProducts.Add(product);
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Error loading products: {ex.Message}";
             }
         }
 
-        public string StatusFilter
+        private async Task LoadOrdersAsync()
         {
-            get => _statusFilter;
-            set
+            try
             {
-                _statusFilter = value;
-                OnPropertyChanged(nameof(StatusFilter));
-                FilterOrders();
+                StatusMessage = "Loading orders...";
+
+                var query = _context.ProductionOrders
+                    .Include(o => o.Product)
+                    .AsQueryable();
+
+                if (!ShowCompletedOrders)
+                {
+                    query = query.Where(o => o.Status != "Completed");
+                }
+
+                var orders = await query
+                    .OrderBy(o => o.DueDate)
+                    .ThenBy(o => o.Priority)
+                    .ToListAsync();
+
+                Orders.Clear();
+                foreach (var order in orders)
+                {
+                    Orders.Add(order);
+                }
+
+                StatusMessage = $"Loaded {Orders.Count} orders";
+                OnPropertyChanged(nameof(TotalOrders));
+                OnPropertyChanged(nameof(PendingOrderCount));
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Error loading orders: {ex.Message}";
+                MessageBox.Show($"Failed to load orders: {ex.Message}", "Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
-        public bool CanEdit => SelectedOrder != null;
+        #endregion
 
-        // Commands
-        public ICommand AddCommand { get; }
-        public ICommand EditCommand { get; }
-        public ICommand DeleteCommand { get; }
-        public ICommand RefreshCommand { get; }
+        #region Order Operations
 
-        public OrderManagementViewModel()
+        private async Task AddOrderAsync()
         {
-            _db = new MesDbContext();
-            
-            Orders = new ObservableCollection<ProductionOrder>();
-            Products = new ObservableCollection<Product>();
-            StatusOptions = new ObservableCollection<string>
+            MessageBox.Show("Use Database Admin → production_orders → Add New to create orders",
+                "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+            // Or just skip this for now
+        }
+
+        private async Task EditOrderAsync()
+        {
+            if (_currentlySelectedOrders.Count == 0)
             {
-                "All",
-                "Planned",
-                "Released",
-                "InProgress",
-                "Completed",
-                "Cancelled"
+                MessageBox.Show("Please select an order to edit.",
+                    "No Selection", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (_currentlySelectedOrders.Count > 1)
+            {
+                MessageBox.Show("Please select only one order to edit.",
+                    "Multiple Selection", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var orderToEdit = _currentlySelectedOrders[0];
+
+            // Simple edit dialog
+            var editWindow = new Window
+            {
+                Title = $"Edit Order {orderToEdit.OrderNumber}",
+                Width = 500,
+                Height = 400,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
             };
 
-            StatusFilter = "All";
+            var grid = new System.Windows.Controls.Grid { Margin = new Thickness(20) };
+            grid.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = new System.Windows.GridLength(1, System.Windows.GridUnitType.Auto) });
+            grid.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = new System.Windows.GridLength(1, System.Windows.GridUnitType.Auto) });
+            grid.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = new System.Windows.GridLength(1, System.Windows.GridUnitType.Auto) });
+            grid.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = new System.Windows.GridLength(1, System.Windows.GridUnitType.Auto) });
+            grid.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = new System.Windows.GridLength(1, System.Windows.GridUnitType.Auto) });
+            grid.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = new System.Windows.GridLength(1, System.Windows.GridUnitType.Star) });
+            grid.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = new System.Windows.GridLength(1, System.Windows.GridUnitType.Auto) });
 
-            AddCommand = new RelayCommand(Add);
-            EditCommand = new RelayCommand(() => Edit());
-            DeleteCommand = new RelayCommand(() => Delete());
-            RefreshCommand = new RelayCommand(Refresh);
+            // Order Number (read-only)
+            var lblOrderNumber = new System.Windows.Controls.TextBlock { Text = "Order Number:", Margin = new Thickness(0, 10, 0, 5) };
+            var txtOrderNumber = new System.Windows.Controls.TextBox { Text = orderToEdit.OrderNumber, IsReadOnly = true, Background = System.Windows.Media.Brushes.LightGray };
+            System.Windows.Controls.Grid.SetRow(lblOrderNumber, 0);
+            System.Windows.Controls.Grid.SetRow(txtOrderNumber, 1);
 
-            LoadData();
-        }
+            // Quantity
+            var lblQuantity = new System.Windows.Controls.TextBlock { Text = "Quantity:", Margin = new Thickness(0, 10, 0, 5) };
+            var txtQuantity = new System.Windows.Controls.TextBox { Text = orderToEdit.Quantity.ToString() };
+            System.Windows.Controls.Grid.SetRow(lblQuantity, 2);
+            System.Windows.Controls.Grid.SetRow(txtQuantity, 3);
 
-        private void LoadData()
-        {
-            // Load products
-            Products.Clear();
-            var products = _db.Products
-                .Where(p => p.StudentId == 1 && p.IsActive)
-                .ToList();
-            foreach (var product in products)
-            {
-                Products.Add(product);
-            }
+            // Status
+            var lblStatus = new System.Windows.Controls.TextBlock { Text = "Status:", Margin = new Thickness(0, 10, 0, 5) };
+            var cmbStatus = new System.Windows.Controls.ComboBox();
+            cmbStatus.Items.Add("Pending");
+            cmbStatus.Items.Add("Released");
+            cmbStatus.Items.Add("Planned");
+            cmbStatus.Items.Add("In Progress");
+            cmbStatus.Items.Add("Completed");
+            cmbStatus.Items.Add("Cancelled");
+            cmbStatus.SelectedItem = orderToEdit.Status;
+            System.Windows.Controls.Grid.SetRow(lblStatus, 4);
+            System.Windows.Controls.Grid.SetRow(cmbStatus, 5);
 
-            // Load orders
-            Refresh();
-        }
+            // Buttons
+            var btnPanel = new System.Windows.Controls.StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, HorizontalAlignment = System.Windows.HorizontalAlignment.Right, Margin = new Thickness(0, 20, 0, 0) };
+            var btnSave = new System.Windows.Controls.Button { Content = "Save", Width = 80, Margin = new Thickness(5) };
+            var btnCancel = new System.Windows.Controls.Button { Content = "Cancel", Width = 80, Margin = new Thickness(5) };
 
-        private void Refresh()
-        {
-            Orders.Clear();
-            var orders = _db.ProductionOrders
-                .Include(o => o.Product)
-                .Where(o => o.StudentId == 1)
-                .OrderByDescending(o => o.CreatedDate)
-                .ToList();
-
-            foreach (var order in orders)
-            {
-                Orders.Add(order);
-            }
-
-            FilterOrders();
-        }
-
-        private void FilterOrders()
-        {
-            var query = _db.ProductionOrders
-                .Include(o => o.Product)
-                .Where(o => o.StudentId == 1)
-                .AsQueryable();
-
-            // Filter by status
-            if (!string.IsNullOrEmpty(StatusFilter) && StatusFilter != "All")
-            {
-                query = query.Where(o => o.Status == StatusFilter);
-            }
-
-            // Filter by search text
-            if (!string.IsNullOrEmpty(SearchText))
-            {
-                query = query.Where(o => 
-                    o.OrderNumber.Contains(SearchText) ||
-                    o.Product.ProductName.Contains(SearchText));
-            }
-
-            Orders.Clear();
-            foreach (var order in query.OrderByDescending(o => o.CreatedDate).ToList())
-            {
-                Orders.Add(order);
-            }
-        }
-
-        private void Add()
-        {
-            var dialog = new OrderEditDialog
-            {
-                DataContext = new OrderEditViewModel(_db, Products.ToList())
-            };
-
-            if (dialog.ShowDialog() == true)
-            {
-                Refresh();
-            }
-        }
-
-        private void Edit()
-        {
-            if (SelectedOrder == null) return;
-
-            var dialog = new OrderEditDialog
-            {
-                DataContext = new OrderEditViewModel(_db, Products.ToList(), SelectedOrder)
-            };
-
-            if (dialog.ShowDialog() == true)
-            {
-                Refresh();
-            }
-        }
-
-        private void Delete()
-        {
-            if (SelectedOrder == null) return;
-
-            var result = System.Windows.MessageBox.Show(
-                $"Delete order {SelectedOrder.OrderNumber}?",
-                "Confirm Delete",
-                System.Windows.MessageBoxButton.YesNo,
-                System.Windows.MessageBoxImage.Warning);
-
-            if (result == System.Windows.MessageBoxResult.Yes)
+            btnSave.Click += async (s, e) =>
             {
                 try
                 {
-                    _db.ProductionOrders.Remove(SelectedOrder);
-                    _db.SaveChanges();
-                    Refresh();
-                }
-                catch (DbUpdateException)
-                {
-                    System.Windows.MessageBox.Show(
-                        $"Cannot delete order {SelectedOrder.OrderNumber}. It is being used in simulation scenarios. Delete those first.",
-                        "Cannot Delete",
-                        System.Windows.MessageBoxButton.OK,
-                        System.Windows.MessageBoxImage.Warning);
+                    if (int.TryParse(txtQuantity.Text, out int newQuantity))
+                    {
+                        orderToEdit.Quantity = newQuantity;
+                        orderToEdit.Status = cmbStatus.SelectedItem?.ToString();
+
+                        await _context.SaveChangesAsync();
+                        await LoadOrdersAsync();
+
+                        editWindow.DialogResult = true;
+                        editWindow.Close();
+                    }
+                    else
+                    {
+                        MessageBox.Show("Invalid quantity value", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
                 }
                 catch (Exception ex)
                 {
-                    System.Windows.MessageBox.Show(
-                        $"Error deleting order: {ex.Message}",
-                        "Error",
-                        System.Windows.MessageBoxButton.OK,
-                        System.Windows.MessageBoxImage.Error);
+                    MessageBox.Show($"Error saving: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
-            }
-        }
-        public event PropertyChangedEventHandler PropertyChanged;
-        protected void OnPropertyChanged(string name) =>
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
-    }
-
-    // Edit dialog ViewModel
-    public class OrderEditViewModel : INotifyPropertyChanged
-    {
-        private readonly MesDbContext _db;
-        private readonly ProductionOrder _order;
-        private readonly bool _isNew;
-
-        public string OrderNumber { get; set; }
-        public int SelectedProductId { get; set; }
-        public int Quantity { get; set; }
-        public DateTime? DueDate { get; set; }
-        public int Priority { get; set; }
-        public string Status { get; set; }
-
-        public ObservableCollection<Product> Products { get; set; }
-        public ObservableCollection<string> StatusOptions { get; set; }
-
-        public ICommand SaveCommand { get; }
-        public ICommand CancelCommand { get; }
-
-        public OrderEditViewModel(MesDbContext db, System.Collections.Generic.List<Product> products, ProductionOrder order = null)
-        {
-            _db = db;
-            _order = order;
-            _isNew = order == null;
-
-            Products = new ObservableCollection<Product>(products);
-            StatusOptions = new ObservableCollection<string>
-            {
-                "Planned",
-                "Released",
-                "InProgress",
-                "Completed",
-                "Cancelled"
             };
 
-            if (_isNew)
-            {
-                OrderNumber = $"WO-{DateTime.Now:yyyyMMdd}-{new Random().Next(1000, 9999)}";
-                Quantity = 10;
-                Priority = 1;
-                Status = "Planned";
-                DueDate = DateTime.Now.AddDays(7);
-                SelectedProductId = products.FirstOrDefault()?.ProductId ?? 0;
-            }
-            else
-            {
-                OrderNumber = order.OrderNumber;
-                SelectedProductId = order.ProductId;
-                Quantity = order.Quantity;
-                DueDate = order.DueDate;
-                Priority = order.Priority;
-                Status = order.Status;
-            }
+            btnCancel.Click += (s, e) => { editWindow.Close(); };
 
-            SaveCommand = new RelayCommand(Save);
-            CancelCommand = new RelayCommand(() => { });
+            btnPanel.Children.Add(btnSave);
+            btnPanel.Children.Add(btnCancel);
+            System.Windows.Controls.Grid.SetRow(btnPanel, 6);
+
+            grid.Children.Add(lblOrderNumber);
+            grid.Children.Add(txtOrderNumber);
+            grid.Children.Add(lblQuantity);
+            grid.Children.Add(txtQuantity);
+            grid.Children.Add(lblStatus);
+            grid.Children.Add(cmbStatus);
+            grid.Children.Add(btnPanel);
+
+            editWindow.Content = grid;
+            editWindow.ShowDialog();
         }
 
-        private void Save()
+        private async Task DeleteOrderAsync()
         {
-            if (_isNew)
+            if (_currentlySelectedOrders.Count == 0)
             {
-                var newOrder = new ProductionOrder
-                {
-                    StudentId = 1,
-                    OrderNumber = OrderNumber,
-                    ProductId = SelectedProductId,
-                    Quantity = Quantity,
-                    DueDate = DueDate,
-                    Priority = Priority,
-                    Status = Status,
-                    CreatedDate = DateTime.Now
-                };
+                MessageBox.Show("Please select at least one order.",
+                    "No Selection", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
 
-                if (Status == "Released")
+            var result = MessageBox.Show(
+                $"Mark {_currentlySelectedOrders.Count} order(s) as 'Cancelled'?",
+                "Cancel Orders",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                try
                 {
-                    newOrder.ReleaseDate = DateTime.Now;
+                    StatusMessage = $"Cancelling {_currentlySelectedOrders.Count} orders...";
+
+                    foreach (var order in _currentlySelectedOrders)
+                    {
+                        var orderToUpdate = await _context.ProductionOrders
+                            .FirstOrDefaultAsync(o => o.OrderId == order.OrderId);
+
+                        if (orderToUpdate != null)
+                        {
+                            orderToUpdate.Status = "Cancelled";
+                        }
+                    }
+
+                    await _context.SaveChangesAsync();
+                    await LoadOrdersAsync();
+
+                    StatusMessage = $"{_currentlySelectedOrders.Count} order(s) cancelled";
+                    MessageBox.Show($"Cancelled {_currentlySelectedOrders.Count} order(s)!", "Success",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
                 }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error: {ex.Message}", "Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+        #endregion
 
-                _db.ProductionOrders.Add(newOrder);
+        #region Selection
+
+        //private void SelectAllOrders()
+        //{
+        //    SelectedOrders.Clear();
+        //    foreach (var order in Orders.Where(o => o.Status == "Pending"))
+        //    {
+        //        SelectedOrders.Add(order);
+        //    }
+        //    StatusMessage = $"Selected {SelectedOrders.Count} orders";
+        //    OnPropertyChanged(nameof(SelectedOrderCount));
+        //}
+
+        //private void ClearSelection()
+        //{
+        //    SelectedOrders.Clear();
+        //    StatusMessage = "Selection cleared";
+        //    OnPropertyChanged(nameof(SelectedOrderCount));
+        //}
+
+        #endregion
+
+        #region Simulation
+
+        private void RunSimulation()
+        {
+            if (_currentlySelectedOrders.Count == 0)
+            {
+                MessageBox.Show("Please select at least one order to simulate.", "No Orders Selected",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            // Filter out cancelled/completed orders
+            var validOrders = _currentlySelectedOrders
+                .Where(o => o.Status != "Cancelled" && o.Status != "Completed")
+                .ToList();
+
+            if (validOrders.Count == 0)
+            {
+                MessageBox.Show(
+                    "None of the selected orders can be simulated.\n\n" +
+                    "Only orders with status 'Pending', 'Released', or 'Planned' can be simulated.",
+                    "Invalid Selection",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            if (validOrders.Count < _currentlySelectedOrders.Count)
+            {
+                var skipped = _currentlySelectedOrders.Count - validOrders.Count;
+                var result = MessageBox.Show(
+                    $"{skipped} order(s) will be skipped (Cancelled/Completed).\n\n" +
+                    $"Run simulation with {validOrders.Count} valid order(s)?",
+                    "Confirm Simulation",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (result != MessageBoxResult.Yes)
+                    return;
             }
             else
             {
-                _order.ProductId = SelectedProductId;
-                _order.Quantity = Quantity;
-                _order.DueDate = DueDate;
-                _order.Priority = Priority;
-                _order.Status = Status;
+                var result = MessageBox.Show(
+                    $"Run simulation with {validOrders.Count} selected order(s)?",
+                    "Confirm Simulation",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
 
-                if (Status == "Released" && _order.ReleaseDate == null)
-                {
-                    _order.ReleaseDate = DateTime.Now;
-                }
+                if (result != MessageBoxResult.Yes)
+                    return;
             }
 
-            _db.SaveChanges();
+            // Return only valid orders to caller
+            SimulationRequested?.Invoke(this, validOrders);
         }
+        public event EventHandler<System.Collections.Generic.List<ProductionOrder>> SimulationRequested;
+
+        #endregion
+
+        #region INotifyPropertyChanged
 
         public event PropertyChangedEventHandler PropertyChanged;
-        protected void OnPropertyChanged(string name) =>
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
+        {
+            if (System.Collections.Generic.EqualityComparer<T>.Default.Equals(field, value))
+                return false;
+
+            field = value;
+            OnPropertyChanged(propertyName);
+            return true;
+        }
+
+        #endregion
     }
+
+    // Simple RelayCommand implementation
+
 }
