@@ -41,6 +41,27 @@ namespace ManufacturingSimulation.Database.Models
         [Column("labor_hours")]
         public double? LaborHours { get; set; }
 
+        [Column("setup_time_mean")]
+        public double? SetupTimeMean { get; set; }
+
+        [Column("setup_time_std_dev")]
+        public double? SetupTimeStdDev { get; set; }
+
+        [Column("setup_time_distribution")]
+        public string? SetupTimeDistribution { get; set; } = "Normal";
+
+        [Column("cycle_time_std_dev")]
+        public double? CycleTimeStdDev { get; set; }
+
+        [Column("cycle_time_distribution")]
+        public string? CycleTimeDistribution { get; set; } = "Normal";
+
+        [Column("batch_size")]
+        public int? BatchSize { get; set; } = 1;
+
+        [Column("is_buffer_only")]
+        public bool? IsBufferOnly { get; set; } = false;
+
         // Navigation properties
         public Student Student { get; set; }
         public Product Product { get; set; }

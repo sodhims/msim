@@ -1,8 +1,7 @@
-namespace ManufacturingSimulation.Core
+﻿namespace ManufacturingSimulation.Core
 {
     /// <summary>
     /// Interface for logging simulation events
-    /// Implemented in Bridge project to avoid circular dependency
     /// </summary>
     public interface ISimulationEventLogger
     {
@@ -11,6 +10,15 @@ namespace ManufacturingSimulation.Core
         void LogProcessingStart(double time, string partId, string orderNumber, string machineName);
         void LogProcessingEnd(double time, string partId, string orderNumber, string machineName, double processingTime);
         void LogPartCompletion(double time, string partId, string orderNumber, double flowTime);
+
+        // NEW: Setup tracking methods
+        void LogSetupStart(double time, string partId, string orderNumber, string machineName, double setupTime);
+        void LogSetupComplete(double time, string partId, string orderNumber, string machineName, double setupDuration);
+
+        // NEW: Buffer and batch operations
+        void LogBufferPass(double time, string partId, string orderNumber, string bufferName);
+        void LogBatchProcessing(double time, string partId, string orderNumber, string machineName, int batchSize, double batchTime);
+
         void Flush();
     }
 }

@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
+using CoreSimEvent = ManufacturingSimulation.Core.Engine.SimulationEvent;
 
 namespace ManufacturingSimulation.WPF.ViewModels
 {

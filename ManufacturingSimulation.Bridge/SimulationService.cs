@@ -26,7 +26,7 @@ namespace ManufacturingSimulation.Bridge
         {
             _db = context;
             _repository = new SimulationRepository(context);
-            _mapper = new MesToSimulationMapper();
+            _mapper = new MesToSimulationMapper(42);
         }
 
         public SimulationService(SimulationRepository repository)

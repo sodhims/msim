@@ -102,7 +102,7 @@ namespace ManufacturingSimulation.Bridge
 
                 // Attach operation timings to the part
                 part.OperationTimings = new List<OperationTiming>(operationTimings);
-
+                
                 // Set initial operation timing
                 part.SetCurrentOperationTiming();
 
@@ -302,8 +302,8 @@ namespace ManufacturingSimulation.Bridge
                 AvgWip = stats.CurrentWIP,
                 TotalPartsArrived = stats.TotalPartsArrived,
                 TotalPartsCompleted = stats.TotalPartsCompleted,
-                OverallUtilizationPercent = stats.MachineStats.Any()
-                    ? stats.MachineStats.Values.Average(m => m.Utilization)
+                OverallUtilizationPercent = stats.MachineStats.Any() 
+                    ? stats.MachineStats.Values.Average(m => m.Utilization) 
                     : 0
             };
         }

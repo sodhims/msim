@@ -1,6 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.10">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\ManufacturingSimulation.Core\ManufacturingSimulation.Core.csproj" />
     <ProjectReference Include="..\ManufacturingSimulation.Database\ManufacturingSimulation.Database.csproj" />
     <ProjectReference Include="..\ManufacturingSimulation.Bridge\ManufacturingSimulation.Bridge.csproj" />

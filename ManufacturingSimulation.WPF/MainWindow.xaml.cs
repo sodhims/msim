@@ -1,13 +1,17 @@
+using ManufacturingSimulation.Bridge;
 using ManufacturingSimulation.Core;
 using ManufacturingSimulation.Core.Configuration;
 using ManufacturingSimulation.Core.Engine;
 using ManufacturingSimulation.Core.Engine.Events;
 using ManufacturingSimulation.Core.Models;
 using ManufacturingSimulation.Database;
+using ManufacturingSimulation.Database;
+using ManufacturingSimulation.Database.Models;
 using ManufacturingSimulation.Database.Models;
 using ManufacturingSimulation.WPF.Services;
 using ManufacturingSimulation.WPF.ViewModels;
 using ManufacturingSimulation.WPF.ViewModels.Admin;
+using ManufacturingSimulation.WPF.Views;
 using ManufacturingSimulation.WPF.Views;
 using ManufacturingSimulation.WPF.Views.Admin;
 using Microsoft.EntityFrameworkCore;
@@ -23,12 +27,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
 using CoreMachine = ManufacturingSimulation.Core.Models.Machine;
-using CoreSimEvent = ManufacturingSimulation.Core.Engine.SimulationEvent;
+using CoreSimEvent = ManufacturingSimulation.Core.Engine.SimulationEvent;  // ← Correct
 using DbMachine = ManufacturingSimulation.Database.Models.Machine;
-using DbSimEvent = ManufacturingSimulation.Database.Models.SimulationEvent;
-using ManufacturingSimulation.Database;
-using ManufacturingSimulation.Database.Models;
-using ManufacturingSimulation.WPF.Views;
+using DbSimEvent = ManufacturingSimulation.Database.Models.SimulationEvent;  // ← Correct
 
 namespace ManufacturingSimulation.WPF
 {
@@ -90,7 +91,11 @@ namespace ManufacturingSimulation.WPF
             LogEvent("Application started");
         }
 
-        private void BtnStart_Click(object sender, RoutedEventArgs e) => StartSimulation();
+        private void BtnStart_Click(object sender, RoutedEventArgs e)
+        {
+            var simWindow = new SimulationRunnerWindow();
+            simWindow.Show();
+        }
         private void BtnPause_Click(object sender, RoutedEventArgs e) => PauseSimulation();
         private void BtnStop_Click(object sender, RoutedEventArgs e) => StopSimulation();
         private void BtnReset_Click(object sender, RoutedEventArgs e) => ResetSimulation();
@@ -118,7 +123,7 @@ namespace ManufacturingSimulation.WPF
 
                 // Initialize engine
                 _engine = new SimulationEngine(_config.RandomSeed);
-                _engine.EventProcessed += OnSimulationEventProcessed;
+                _engine.EventProcessed += OnDbSimEventProcessed;
 
                 // Configure machines
                 foreach (var machineConfig in _config.Machines)
@@ -129,34 +134,45 @@ namespace ManufacturingSimulation.WPF
                 }
 
                 // Generate parts - either from selected orders OR default generation
+                // Generate parts - from selected orders using DATABASE routing
                 if (_selectedOrders != null && _selectedOrders.Count > 0)
                 {
                     LogEvent($"=== Generating parts from {_selectedOrders.Count} production orders ===");
 
-                    int partId = 1;
-                    var random = new Random(_config.RandomSeed);
                     double currentArrivalTime = 0;
+                    var mapper = new MesToSimulationMapper(_config.RandomSeed);
 
-                    foreach (var order in _selectedOrders)
+                    using (var db = new MesDbContext())
                     {
-                        LogEvent($"Order {order.OrderNumber}: {order.Product?.ProductName ?? "Unknown"} x{order.Quantity}");
-
-                        for (int i = 0; i < order.Quantity; i++)
+                        foreach (var order in _selectedOrders)
                         {
-                            double interArrivalTime = _config.GetArrivalDistribution().Sample(random);
-                            currentArrivalTime += interArrivalTime;
+                            LogEvent($"Order {order.OrderNumber}: {order.Product?.ProductName ?? "Unknown"} x{order.Quantity}");
 
-                            var part = new Part(
-                                $"{order.OrderNumber}-Part{i + 1}",  // ← This includes order number
-                                new List<int>(_config.StandardRoute),
-                                currentArrivalTime);
+                            // Load the full order with product and routings
+                            var fullOrder = db.ProductionOrders
+                                .Include(o => o.Product)
+                                    .ThenInclude(p => p.Routings)  // ← Load routings!
+                                .FirstOrDefault(o => o.OrderId == order.OrderId);
 
-                            _engine.SchedulePartArrival(part, currentArrivalTime);
-                            partId++;
+                            if (fullOrder?.Product?.Routings == null || !fullOrder.Product.Routings.Any())
+                            {
+                                LogEvent($"WARNING: No routing defined for {fullOrder?.Product?.ProductName}");
+                                continue;
+                            }
+
+                            // Use mapper to create parts with proper routing
+                            var parts = mapper.MapToParts(fullOrder, currentArrivalTime);
+
+                            foreach (var part in parts)
+                            {
+                                _engine.SchedulePartArrival(part, part.ArrivalTime);
+                            }
+
+                            currentArrivalTime += 0.5;
                         }
                     }
 
-                    LogEvent($"Scheduled {partId - 1} parts from {_selectedOrders.Count} orders");
+                    LogEvent($"Scheduled parts from {_selectedOrders.Count} orders");
                 }
                 else
                 {
@@ -611,7 +627,7 @@ namespace ManufacturingSimulation.WPF
             MessageBox.Show("Simulation Complete!", "Done", MessageBoxButton.OK);
         }
 
-        private void OnSimulationEventProcessed(object sender, CoreSimEvent e)
+        private void OnDbSimEventProcessed(object sender, CoreSimEvent e)
         {
             // Already using Dispatcher.BeginInvoke - make sure ALL LogEvent calls use it
             if (e is PartArrivalEvent arrival)

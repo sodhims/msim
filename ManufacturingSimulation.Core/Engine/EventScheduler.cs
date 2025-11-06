@@ -1,24 +1,25 @@
-using ManufacturingSimulation.Core;
+﻿using ManufacturingSimulation.Core;
+
 namespace ManufacturingSimulation.Core.Engine
 {
     public class EventScheduler
     {
-        private readonly PriorityQueue<SimulationEvent, double> _eventQueue;
+        private readonly PriorityQueue<SimulationEvent, double> _eventQueue;  // ← Fix
         private int _eventCounter;
 
         public EventScheduler()
         {
-            _eventQueue = new PriorityQueue<SimulationEvent, double>();
+            _eventQueue = new PriorityQueue<SimulationEvent, double>();  // ← Fix
             _eventCounter = 0;
         }
 
-        public void ScheduleEvent(SimulationEvent evt)
+        public void ScheduleEvent(SimulationEvent evt)  // ← Fix
         {
             _eventQueue.Enqueue(evt, evt.ScheduledTime);
             _eventCounter++;
         }
 
-        public SimulationEvent? GetNextEvent()
+        public SimulationEvent? GetNextEvent()  // ← Fix
         {
             if (_eventQueue.Count == 0)
                 return null;
@@ -35,7 +36,7 @@ namespace ManufacturingSimulation.Core.Engine
             _eventCounter = 0;
         }
 
-        public SimulationEvent? PeekNextEvent()
+        public SimulationEvent? PeekNextEvent()  // ← Fix
         {
             if (_eventQueue.Count == 0)
                 return null;

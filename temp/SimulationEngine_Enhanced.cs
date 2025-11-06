@@ -1,4 +1,3 @@
-using ManufacturingSimulation.Core;  // For IDbSimEventLogger interface
 using ManufacturingSimulation.Core.Models;
 using ManufacturingSimulation.Core.Engine;
 using ManufacturingSimulation.Core.Engine.Events;
@@ -137,10 +136,10 @@ namespace ManufacturingSimulation.Core
 
             // Complete setup phase
             machine.CompleteSetup(_currentTime);
-
+            
             double setupDuration = _currentTime - machine.SetupStartTime;
             TrackMachineSetupTime(machine, machine.SetupStartTime, _currentTime);
-
+            
             _eventLogger?.LogSetupComplete(_currentTime, part.Id, part.Id, machine.Name, setupDuration);
 
             // Check if this is a buffer-only operation (no processing needed)
@@ -148,7 +147,7 @@ namespace ManufacturingSimulation.Core
             {
                 Debug($"    Buffer-only operation - skipping processing");
                 _eventLogger?.LogBufferPass(_currentTime, part.Id, part.Id, machine.Name);
-
+                
                 // Immediately complete (move to next operation)
                 machine.State = MachineState.Idle;
                 HandleOperationComplete(machine, part);
@@ -164,13 +163,13 @@ namespace ManufacturingSimulation.Core
 
             if (batchSize > 1)
             {
-                _eventLogger?.LogBatchProcessing(_currentTime, part.Id, part.Id,
+                _eventLogger?.LogBatchProcessing(_currentTime, part.Id, part.Id, 
                     machine.Name, batchSize, totalProcessingTime);
             }
 
             machine.StartProcessing(part, _currentTime, totalProcessingTime);
             _eventLogger?.LogProcessingStart(_currentTime, part.Id, part.Id, machine.Name);
-
+            
             _scheduler.ScheduleEvent(new ProcessingCompleteEvent(
                 _currentTime + totalProcessingTime, machine, part));
         }
@@ -282,7 +281,7 @@ namespace ManufacturingSimulation.Core
             if (setupTime <= 0.01 || isBufferOnly)
             {
                 Debug($"[TryStart] No setup needed - going directly to processing");
-
+                
                 if (isBufferOnly)
                 {
                     // Buffer operation - instant pass through
@@ -297,7 +296,7 @@ namespace ManufacturingSimulation.Core
 
                     machine.StartProcessing(part, _currentTime, totalProcessingTime);
                     _eventLogger?.LogProcessingStart(_currentTime, part.Id, part.Id, machine.Name);
-
+                    
                     _scheduler.ScheduleEvent(new ProcessingCompleteEvent(
                         _currentTime + totalProcessingTime, machine, part));
                 }
@@ -308,7 +307,7 @@ namespace ManufacturingSimulation.Core
                 Debug($"[TryStart] Starting setup phase");
                 machine.StartSetup(part, _currentTime, setupTime);
                 _eventLogger?.LogSetupStart(_currentTime, part.Id, part.Id, machine.Name, setupTime);
-
+                
                 _scheduler.ScheduleEvent(new SetupCompleteEvent(
                     _currentTime + setupTime, machine, part));
             }
