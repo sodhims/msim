@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 
@@ -147,7 +148,7 @@ namespace ManufacturingSimulation.WPF.ViewModels
 
                 _db.SaveChanges();
                 StatusMessage = "✓ Machine configuration saved";
-                MessageBox.Show("Configuration saved successfully!", 
+                MessageBox.Show("Configuration saved successfully!",
                     "Saved", MessageBoxButton.OK, MessageBoxImage.Information);
 
                 LoadMachineConfigurations();
@@ -155,7 +156,7 @@ namespace ManufacturingSimulation.WPF.ViewModels
             catch (Exception ex)
             {
                 StatusMessage = $"✗ Error: {ex.Message}";
-                MessageBox.Show($"Error: {ex.Message}", 
+                MessageBox.Show($"Error: {ex.Message}",
                     "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -165,7 +166,7 @@ namespace ManufacturingSimulation.WPF.ViewModels
             AvailableOrders.Clear();
             var orders = _db.ProductionOrders
                 .Include(o => o.Product)
-                .Where(o => o.StudentId == 1 && 
+                .Where(o => o.StudentId == 1 &&
                            (o.Status == "Planned" || o.Status == "Released"))
                 .OrderBy(o => o.Priority)
                 .ThenBy(o => o.DueDate)
@@ -217,6 +218,7 @@ namespace ManufacturingSimulation.WPF.ViewModels
             OnPropertyChanged(nameof(CanRun));
             StatusMessage = $"Added {selected.Count} orders - Total: {SelectedOrders.Count}";
         }
+
         private void AddAllOrders()
         {
             foreach (var order in AvailableOrders.ToList())
@@ -228,6 +230,7 @@ namespace ManufacturingSimulation.WPF.ViewModels
             }
             AvailableOrders.Clear();
         }
+
         private void RemoveSelectedOrders()
         {
             var selected = GetSelectedSimulationOrders?.Invoke();
@@ -258,14 +261,13 @@ namespace ManufacturingSimulation.WPF.ViewModels
             OnPropertyChanged(nameof(CanRun));
             StatusMessage = "Orders cleared";
         }
+
         private async void RunSimulation()
         {
             if (!CanRun) return;
 
             IsRunning = true;
 
-            //var machineConfig = string.Join(", ", 
-            //    MachineConfigurations.Select(m => $"{m.MachineName}:{m.Quantity}"));
             var machineConfig = string.Join(", ",
                MachineConfigurations.Select(m => $"{m.MachineName}:{m.Quantity}"));
 
@@ -290,6 +292,7 @@ namespace ManufacturingSimulation.WPF.ViewModels
                         }).ToList()
                     )
                 );
+
                 if (result.Success)
                 {
                     StatusMessage = $"✓ Completed! Throughput: {result.Statistics?.Throughput:F2} parts/hr";
@@ -309,7 +312,7 @@ namespace ManufacturingSimulation.WPF.ViewModels
             catch (Exception ex)
             {
                 StatusMessage = $"✗ Error: {ex.Message}";
-                MessageBox.Show($"Error: {ex.Message}", "Error", 
+                MessageBox.Show($"Error: {ex.Message}", "Error",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
@@ -328,11 +331,22 @@ namespace ManufacturingSimulation.WPF.ViewModels
 
         private void ShowResults(SimulationRunSummary summary)
         {
-            var dialog = new SimulationResultsDialog
+            var message = $"Simulation Complete!\n\n" +
+                          $"Run ID: {summary.RunId}\n" +
+                          $"Throughput: {summary.Result?.Throughput:F2} parts/hr\n" +
+                          $"Avg Flow Time: {summary.Result?.AvgFlowTimeHours:F2} hrs\n" +
+                          $"Avg WIP: {summary.Result?.AvgWip:F1} parts\n" +
+                          $"Utilization: {summary.Result?.OverallUtilizationPercent:F1}%\n\n" +
+                          $"View Gantt Chart?";
+
+            var result = MessageBox.Show(message, "Simulation Complete",
+                MessageBoxButton.YesNo, MessageBoxImage.Information);
+
+            if (result == MessageBoxResult.Yes)
             {
-                DataContext = new SimulationResultsViewModel(summary)
-            };
-            dialog.ShowDialog();
+                var ganttWindow = new GanttChartWindow(summary.RunId);
+                ganttWindow.Show();
+            }
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -340,7 +354,6 @@ namespace ManufacturingSimulation.WPF.ViewModels
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 
-    // Simple work center config class
     public class WorkCenterConfig : INotifyPropertyChanged
     {
         private int _quantity;
@@ -349,7 +362,7 @@ namespace ManufacturingSimulation.WPF.ViewModels
         public int WorkCenterId { get; set; }
         public string MachineName { get; set; }
         public string MachineType { get; set; }
-        
+
         public int Quantity
         {
             get => _quantity;

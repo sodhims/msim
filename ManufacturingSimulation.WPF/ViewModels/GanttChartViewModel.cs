@@ -31,6 +31,8 @@ namespace ManufacturingSimulation.WPF.ViewModels
         public event Action<int> TaskCountChanged;
         public event Action<int> MachineCountChanged;
         public event Action<string> HoverInfoChanged;
+        public event Action<string> RunInfoChanged;           // ADD THIS
+        public event Action<string> PartsSimulatedChanged;    // ADD THIS
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -46,7 +48,8 @@ namespace ManufacturingSimulation.WPF.ViewModels
 
         public void LoadGanttData()
         {
-            // Get data from database
+
+
             var ganttData = _simulationService.GetGanttChartData(_runId);
 
             if (ganttData == null || ganttData.Tasks == null || !ganttData.Tasks.Any())
@@ -59,46 +62,27 @@ namespace ManufacturingSimulation.WPF.ViewModels
                 );
                 return;
             }
+            var uniqueParts = ganttData.Tasks.Select(t => t.PartId).Distinct().Count();
+            var uniqueOrders = ganttData.Tasks
+                .Select(t => string.Join("-", t.PartId.Split('-').Take(3)))
+                .Distinct()
+                .ToList();
+
+            var orderNumbers = uniqueOrders.Select(o => o.Split('-').Last()).ToList();
+            MessageBox.Show($"RunId: {_runId}\nUnique Parts: {uniqueParts}\nOrders: {string.Join(", ", orderNumbers)}");
 
             // Update header information
+            RunInfoChanged?.Invoke($"Run #{_runId} - {ganttData.SimulationDate:yyyy-MM-dd HH:mm}");
+            PartsSimulatedChanged?.Invoke($"{uniqueParts} parts from orders: {string.Join(", ", orderNumbers)}");
+//            PartsSimulatedChanged?.Invoke($"{uniqueParts} parts from {uniqueOrders.Count} orders: {string.Join(", ", uniqueOrders.Select(o => o.Split('-').Last()))}");
             SimulationDateChanged?.Invoke(ganttData.SimulationDate.ToString("yyyy-MM-dd HH:mm"));
             MakespanChanged?.Invoke($"{ganttData.Makespan:F2} min");
             TaskCountChanged?.Invoke(ganttData.Tasks.Count);
             MachineCountChanged?.Invoke(ganttData.UniqueMachines?.Count ?? 0);
 
-            // Draw the chart
             DrawGanttChart(ganttData);
         }
 
-        //private void DrawGanttChart(GanttViewData ganttData)
-        //{
-        //    _canvas.Children.Clear();
-
-        //    if (ganttData.UniqueMachines == null || !ganttData.UniqueMachines.Any())
-        //    {
-        //        return;
-        //    }
-
-        //    // Calculate canvas size
-        //    double canvasWidth = Math.Max(1000, ganttData.Makespan * 2); // 2 pixels per minute minimum
-        //    double canvasHeight = (ganttData.UniqueMachines.Count * ROW_HEIGHT) + MARGIN_TOP + TIME_LABEL_HEIGHT + 50;
-
-        //    _canvas.Width = canvasWidth + MACHINE_LABEL_WIDTH + 50;
-        //    _canvas.Height = canvasHeight;
-
-        //    // Calculate time scale
-        //    double pixelsPerMinute = (canvasWidth - MACHINE_LABEL_WIDTH - 50) / ganttData.Makespan;
-
-        //    // Draw grid and timeline
-        //    DrawTimeline(ganttData.Makespan, pixelsPerMinute, canvasWidth);
-        //    DrawMachineRows(ganttData.UniqueMachines, canvasHeight);
-
-        //    // Draw tasks
-        //    foreach (var task in ganttData.Tasks)
-        //    {
-        //        DrawTask(task, ganttData.UniqueMachines, pixelsPerMinute);
-        //    }
-        //}
 
         private void DrawTimeline(double makespan, double pixelsPerMinute, double canvasWidth)
         {

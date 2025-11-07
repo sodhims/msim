@@ -34,6 +34,7 @@ using ManufacturingSimulation.WPF.Views;
 using ManufacturingSimulation.Database;
 using ManufacturingSimulation.Bridge;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.VisualBasic;
 
 namespace ManufacturingSimulation.WPF
 {
@@ -614,21 +615,6 @@ namespace ManufacturingSimulation.WPF
             }
         }
 
-        private void OnSimulationCompleted(int runId)
-        {
-            _lastRunId = runId; 
-            StopSimulation();
-            progressBar.Value = 100;
-            if (_engine?.EventLogger != null)
-            {
-                _engine.EventLogger.Flush();
-                LogEvent($"Events flushed for run {runId}");
-            }
-            UpdateStatus("Completed");
-            LogEvent("=== Completed ===");
-            MessageBox.Show("Simulation Complete!", "Done", MessageBoxButton.OK);
-        }
-
         private void OnDbSimEventProcessed(object sender, CoreSimEvent e)
         {
             // Already using Dispatcher.BeginInvoke - make sure ALL LogEvent calls use it
@@ -777,11 +763,13 @@ namespace ManufacturingSimulation.WPF
         {
             try
             {
-                // Use the last run ID from simulation, or test with run 54
-                int runId = _lastRunId ?? 54;
+                int runId = _currentRunId > 0 ? _currentRunId : (_lastRunId ?? 54);
+
+                LogEvent($"Opening Gantt Chart for run ID: {runId}");
 
                 var ganttWindow = new GanttChartWindow(runId);
                 ganttWindow.Show();
+
             }
             catch (Exception ex)
             {
@@ -795,13 +783,47 @@ namespace ManufacturingSimulation.WPF
         }
 
         // After your simulation completes, call this:
-        private void OnSimulationComplete(int runId)
+        private void OnSimulationCompleted(int runId)
         {
+            MessageBox.Show($"OnSimulationCompleted called with runId: {runId}");
+            _currentRunId = runId;
             _lastRunId = runId;
-            btnViewGanttChart.IsEnabled = true; // ← ADD THIS
-            MessageBox.Show("Simulation Complete!", "Done", MessageBoxButton.OK);
+
+            if (_engine?.EventLogger != null)
+            {
+                _engine.EventLogger.Flush();
+                LogEvent($"Events flushed for run {runId}");
+            }
+
+            // Calculate and display KPIs
+            var stats = _engine.GetStatistics();
+
+            txtThroughput.Text = $"{stats.Throughput:F2} parts/hr";
+            txtAvgLeadTime.Text = $"{(stats.AverageFlowTime / 60):F2} hrs"; // Convert min to hrs
+            txtWIP.Text = $"{stats.CurrentWIP} parts";
+
+            // Calculate efficiency (avg machine utilization)
+            double avgUtilization = stats.MachineStats.Values.Average(m => m.Utilization);
+            txtOverallEfficiency.Text = $"{avgUtilization:F1}%";
+
+            // Find bottleneck (highest utilization)
+            var bottleneck = stats.MachineStats.Values.OrderByDescending(m => m.Utilization).FirstOrDefault();
+            txtBottleneck.Text = bottleneck?.MachineName ?? "N/A";
+
+            // On-time delivery needs due dates - set to N/A for now
+            txtOnTimeDelivery.Text = "N/A";
+
+            StopSimulation();
+            progressBar.Value = 100;
+            UpdateStatus("Completed");
+            LogEvent($"=== Completed - Run {runId} ===");
+
             btnViewGanttChart.IsEnabled = true;
+
+            MessageBox.Show($"Simulation Complete!\nRun ID: {runId}\nThroughput: {stats.Throughput:F2} parts/hr",
+                "Done", MessageBoxButton.OK);
         }
+
         private void btnViewGanttChart_Click(object sender, RoutedEventArgs e)
         {
             MessageBox.Show(
