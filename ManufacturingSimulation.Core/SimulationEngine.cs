@@ -5,9 +5,10 @@ using ManufacturingSimulation.Core.Engine.Events;
 using ManufacturingSimulation.Core.Distributions;
 using MachineBuffer = ManufacturingSimulation.Core.Models.Buffer;
 
+
 namespace ManufacturingSimulation.Core
 {
-    /// <summary>
+    /// <summary>public ISimulationEventLogger
     /// ENHANCED Simulation Engine with setup/operation phase tracking
     /// Now uses routing-based timing with distribution support
     /// </summary>
@@ -26,7 +27,9 @@ namespace ManufacturingSimulation.Core
 
         private IDistribution? _processingTimeDistribution;
         private ISimulationEventLogger? _eventLogger;
+        public ISimulationEventLogger? EventLogger => _eventLogger;
 
+   
         public List<Machine> Machines { get; }
         public Dictionary<int, MachineBuffer> Buffers { get; }
         public double CurrentTime => _currentTime;
@@ -313,6 +316,7 @@ namespace ManufacturingSimulation.Core
                     _currentTime + setupTime, machine, part));
             }
         }
+
 
         public void Reset()
         {

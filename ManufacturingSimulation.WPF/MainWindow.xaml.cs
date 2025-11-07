@@ -30,6 +30,10 @@ using CoreMachine = ManufacturingSimulation.Core.Models.Machine;
 using CoreSimEvent = ManufacturingSimulation.Core.Engine.SimulationEvent;  // ← Correct
 using DbMachine = ManufacturingSimulation.Database.Models.Machine;
 using DbSimEvent = ManufacturingSimulation.Database.Models.SimulationEvent;  // ← Correct
+using ManufacturingSimulation.WPF.Views;
+using ManufacturingSimulation.Database;
+using ManufacturingSimulation.Bridge;
+using Microsoft.EntityFrameworkCore;
 
 namespace ManufacturingSimulation.WPF
 {
@@ -47,7 +51,7 @@ namespace ManufacturingSimulation.WPF
 
         private MesDbContext _context;
         private Student _currentStudent;
-
+        private int _currentRunId = 0; 
         public MainWindow()
         {
             InitializeComponent();
@@ -115,102 +119,94 @@ namespace ManufacturingSimulation.WPF
                 }
                 if (_isRunning) return;
 
-                // READ PARAMETERS FROM UI FIRST
                 ApplySimulationParameters();
 
-                // LOG THE ACTUAL VALUES BEING USED
-                LogEvent($">>> CONFIG VALUES: Duration={_config.RunLength}, Parts={_config.NumberOfParts}, Seed={_config.RandomSeed}");
+                // CREATE RUN RECORD
+                using (var db = new MesDbContext())
+                {
+                    var run = new SimulationRun
+                    {
+                        ScenarioId = 1,
+                        StudentId = 1,
+                        RunDate = DateTime.Now,
+                        Status = "Running",
+                        ConfigJson = $"Duration: {_config.RunLength}h, Seed: {_config.RandomSeed}"
+                    };
+                    db.SimulationRuns.Add(run);
+                    db.SaveChanges();
+                    _currentRunId = run.RunId;
+                }
 
                 // Initialize engine
                 _engine = new SimulationEngine(_config.RandomSeed);
                 _engine.EventProcessed += OnDbSimEventProcessed;
 
-                // Configure machines
-                foreach (var machineConfig in _config.Machines)
+                var logger = new Bridge.SimulationEventLogger(_currentRunId, new MesDbContext());
+                _engine.SetEventLogger(logger);
+
+                // Load machines from database
+                int machineCount = 0;
+                using (var db = new MesDbContext())
                 {
-                    var machine = new CoreMachine(machineConfig.Id, machineConfig.Name, null);
-                    _engine.AddMachine(machine, machineConfig.BufferCapacity);
-                    LogEvent($"Added machine: {machine.Name} (Buffer: {machineConfig.BufferCapacity})");
+                    var workCenters = db.WorkCenters.Where(wc => wc.IsActive == true).OrderBy(wc => wc.WorkCenterId).ToList();
+                    foreach (var wc in workCenters)
+                    {
+                        var machine = new CoreMachine(wc.WorkCenterId, wc.WorkCenterName, null);
+                        _engine.AddMachine(machine, 10);
+                        machineCount++;
+                    }
                 }
 
-                // Generate parts - either from selected orders OR default generation
-                // Generate parts - from selected orders using DATABASE routing
-                if (_selectedOrders != null && _selectedOrders.Count > 0)
+                // Generate parts from orders
+                if (_selectedOrders == null || !_selectedOrders.Any())
                 {
-                    LogEvent($"=== Generating parts from {_selectedOrders.Count} production orders ===");
+                    LogEvent("ERROR: No orders selected");
+                    MessageBox.Show("Select production orders first", "No Orders", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
 
-                    double currentArrivalTime = 0;
-                    var mapper = new MesToSimulationMapper(_config.RandomSeed);
+                int totalParts = 0;
+                double currentArrivalTime = 0;
+                var mapper = new MesToSimulationMapper(_config.RandomSeed);
 
-                    using (var db = new MesDbContext())
+                using (var db = new MesDbContext())
+                {
+                    foreach (var order in _selectedOrders)
                     {
-                        foreach (var order in _selectedOrders)
+                        var fullOrder = db.ProductionOrders
+                            .Include(o => o.Product)
+                                .ThenInclude(p => p.Routings)
+                                    .ThenInclude(r => r.WorkCenter)
+                            .FirstOrDefault(o => o.OrderId == order.OrderId);
+
+                        if (fullOrder?.Product?.Routings == null || !fullOrder.Product.Routings.Any())
                         {
-                            LogEvent($"Order {order.OrderNumber}: {order.Product?.ProductName ?? "Unknown"} x{order.Quantity}");
-
-                            // Load the full order with product and routings
-                            var fullOrder = db.ProductionOrders
-                                .Include(o => o.Product)
-                                    .ThenInclude(p => p.Routings)  // ← Load routings!
-                                .FirstOrDefault(o => o.OrderId == order.OrderId);
-
-                            if (fullOrder?.Product?.Routings == null || !fullOrder.Product.Routings.Any())
-                            {
-                                LogEvent($"WARNING: No routing defined for {fullOrder?.Product?.ProductName}");
-                                continue;
-                            }
-
-                            // Use mapper to create parts with proper routing
-                            var parts = mapper.MapToParts(fullOrder, currentArrivalTime);
-
-                            foreach (var part in parts)
-                            {
-                                _engine.SchedulePartArrival(part, part.ArrivalTime);
-                            }
-
-                            currentArrivalTime += 0.5;
+                            LogEvent($"WARNING: No routing for order {order.OrderNumber}");
+                            continue;
                         }
+
+                        var parts = mapper.MapToParts(fullOrder, currentArrivalTime);
+                        foreach (var part in parts)
+                            _engine.SchedulePartArrival(part, part.ArrivalTime);
+
+                        totalParts += parts.Count;
+                        currentArrivalTime += 0.5;
                     }
-
-                    LogEvent($"Scheduled parts from {_selectedOrders.Count} orders");
                 }
-                else
-                {
-                    // DEFAULT GENERATION (no orders selected)
-                    LogEvent("=== Generating parts using default parameters ===");
 
-                    var arrivalDistribution = _config.GetArrivalDistribution();
-                    var random = new Random(_config.RandomSeed);
-                    double currentArrivalTime = 0;
-
-                    for (int i = 0; i < _config.NumberOfParts; i++)
-                    {
-                        double interArrivalTime = arrivalDistribution.Sample(random);
-                        currentArrivalTime += interArrivalTime;
-                        var part = new Part($"Part-{i + 1}", new List<int>(_config.StandardRoute), currentArrivalTime);
-                        _engine.SchedulePartArrival(part, currentArrivalTime);
-                    }
-
-                    LogEvent($"Scheduled {_config.NumberOfParts} parts");
-                }
+                LogEvent($"Run {_currentRunId}: {_selectedOrders.Count} orders, {totalParts} parts, {machineCount} machines, {_config.RunLength}h");
 
                 _isRunning = true;
                 _uiUpdateTimer.Start();
                 UpdateControlStates(true);
-                UpdateStatus("Started");
-
-                // Use the updated duration
-                double duration = _config.RunLength;
-
-                LogEvent($"=== STARTING SIMULATION: DURATION = {duration} HOURS ===");
+                UpdateStatus("Running");
 
                 Task.Run(() =>
                 {
                     try
                     {
-                        LogEvent($"Engine.RunUntil({duration}) called...");
-                        _engine.RunUntil(duration);
-                        Dispatcher.Invoke(() => OnSimulationCompleted());
+                        _engine.RunUntil(_config.RunLength);
+                        Dispatcher.Invoke(() => OnSimulationCompleted(_currentRunId));
                     }
                     catch (Exception ex)
                     {
@@ -618,10 +614,16 @@ namespace ManufacturingSimulation.WPF
             }
         }
 
-        private void OnSimulationCompleted()
+        private void OnSimulationCompleted(int runId)
         {
+            _lastRunId = runId; 
             StopSimulation();
             progressBar.Value = 100;
+            if (_engine?.EventLogger != null)
+            {
+                _engine.EventLogger.Flush();
+                LogEvent($"Events flushed for run {runId}");
+            }
             UpdateStatus("Completed");
             LogEvent("=== Completed ===");
             MessageBox.Show("Simulation Complete!", "Done", MessageBoxButton.OK);
@@ -730,7 +732,7 @@ namespace ManufacturingSimulation.WPF
             context.SaveChanges();
         }
 
-private void ManageOrders_Click(object sender, RoutedEventArgs e)
+        private void ManageOrders_Click(object sender, RoutedEventArgs e)
         {
             try
             {
@@ -769,7 +771,62 @@ private void ManageOrders_Click(object sender, RoutedEventArgs e)
             MessageBox.Show($"Ready to simulate {selectedOrders.Count} orders!",
                 "Orders Loaded", MessageBoxButton.OK, MessageBoxImage.Information);
         }
+        private int? _lastRunId; // Add this field
 
+        private void TestGantt_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Use the last run ID from simulation, or test with run 54
+                int runId = _lastRunId ?? 54;
+
+                var ganttWindow = new GanttChartWindow(runId);
+                ganttWindow.Show();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Error opening Gantt Chart:\n\n{ex.Message}\n\n{ex.StackTrace}",
+                    "Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
+            }
+        }
+
+        // After your simulation completes, call this:
+        private void OnSimulationComplete(int runId)
+        {
+            _lastRunId = runId;
+            btnViewGanttChart.IsEnabled = true; // ← ADD THIS
+            MessageBox.Show("Simulation Complete!", "Done", MessageBoxButton.OK);
+            btnViewGanttChart.IsEnabled = true;
+        }
+        private void btnViewGanttChart_Click(object sender, RoutedEventArgs e)
+        {
+            MessageBox.Show(
+                "Gantt Chart feature coming soon!\n\nWe need to add the GanttChartWindow files first.",
+                "Feature Preview",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information
+            );
+
+            /* UNCOMMENT AFTER ADDING GANTT FILES:
+            try
+            {
+                if (_lastRunId.HasValue)
+                {
+                    var ganttWindow = new GanttChartWindow(_lastRunId.Value);
+                    ganttWindow.Show();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error: {ex.Message}", "Error", 
+                               MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            */
+        }
     }
 
     // ← SUPPORTING CLASS OUTSIDE THE MAIN CLASS

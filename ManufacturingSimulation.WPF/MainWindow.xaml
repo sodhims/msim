@@ -326,108 +326,151 @@
                         <!-- KPI Dashboard -->
                         <GroupBox Header="Key Performance Indicators">
                             <UniformGrid Rows="2" Columns="3" Margin="10">
+
                                 <!-- Throughput -->
                                 <Border BorderBrush="#BDC3C7" BorderThickness="1" 
-                                       Margin="5" Padding="15" Background="White">
+                           Margin="5" Padding="15" Background="White">
                                     <StackPanel>
                                         <TextBlock Text="Throughput" FontSize="14" 
-                                                  Foreground="#7F8C8D" HorizontalAlignment="Center"/>
+                                      Foreground="#7F8C8D" HorizontalAlignment="Center"/>
                                         <TextBlock x:Name="txtThroughput" Text="0.00 jobs/hr" 
-                                                  FontSize="24" FontWeight="Bold" 
-                                                  Foreground="{StaticResource AccentBrush}" 
-                                                  HorizontalAlignment="Center" Margin="0,10"/>
+                                      FontSize="24" FontWeight="Bold" 
+                                      Foreground="{StaticResource AccentBrush}" 
+                                      HorizontalAlignment="Center" Margin="0,10"/>
                                     </StackPanel>
                                 </Border>
 
                                 <!-- Average Lead Time -->
                                 <Border BorderBrush="#BDC3C7" BorderThickness="1" 
-                                       Margin="5" Padding="15" Background="White">
+                           Margin="5" Padding="15" Background="White">
                                     <StackPanel>
                                         <TextBlock Text="Avg Lead Time" FontSize="14" 
-                                                  Foreground="#7F8C8D" HorizontalAlignment="Center"/>
+                                      Foreground="#7F8C8D" HorizontalAlignment="Center"/>
                                         <TextBlock x:Name="txtAvgLeadTime" Text="0.00 hrs" 
-                                                  FontSize="24" FontWeight="Bold" 
-                                                  Foreground="{StaticResource SuccessBrush}" 
-                                                  HorizontalAlignment="Center" Margin="0,10"/>
-                                    </StackPanel>
-                                </Border>
-
-                                <!-- Overall Efficiency -->
-                                <Border BorderBrush="#BDC3C7" BorderThickness="1" 
-                                       Margin="5" Padding="15" Background="White">
-                                    <StackPanel>
-                                        <TextBlock Text="Overall Efficiency" FontSize="14" 
-                                                  Foreground="#7F8C8D" HorizontalAlignment="Center"/>
-                                        <TextBlock x:Name="txtOverallEfficiency" Text="0.00%" 
-                                                  FontSize="24" FontWeight="Bold" 
-                                                  Foreground="{StaticResource WarningBrush}" 
-                                                  HorizontalAlignment="Center" Margin="0,10"/>
+                                      FontSize="24" FontWeight="Bold" 
+                                      Foreground="{StaticResource AccentBrush}" 
+                                      HorizontalAlignment="Center" Margin="0,10"/>
                                     </StackPanel>
                                 </Border>
 
                                 <!-- WIP -->
                                 <Border BorderBrush="#BDC3C7" BorderThickness="1" 
-                                       Margin="5" Padding="15" Background="White">
+                           Margin="5" Padding="15" Background="White">
                                     <StackPanel>
-                                        <TextBlock Text="Work In Progress" FontSize="14" 
-                                                  Foreground="#7F8C8D" HorizontalAlignment="Center"/>
-                                        <TextBlock x:Name="txtWIP" Text="0" 
-                                                  FontSize="24" FontWeight="Bold" 
-                                                  Foreground="{StaticResource PrimaryBrush}" 
-                                                  HorizontalAlignment="Center" Margin="0,10"/>
+                                        <TextBlock Text="WIP" FontSize="14" 
+                                      Foreground="#7F8C8D" HorizontalAlignment="Center"/>
+                                        <TextBlock x:Name="txtWIP" Text="0 parts" 
+                                      FontSize="24" FontWeight="Bold" 
+                                      Foreground="{StaticResource AccentBrush}" 
+                                      HorizontalAlignment="Center" Margin="0,10"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Overall Efficiency -->
+                                <Border BorderBrush="#BDC3C7" BorderThickness="1" 
+                           Margin="5" Padding="15" Background="White">
+                                    <StackPanel>
+                                        <TextBlock Text="Efficiency" FontSize="14" 
+                                      Foreground="#7F8C8D" HorizontalAlignment="Center"/>
+                                        <TextBlock x:Name="txtOverallEfficiency" Text="0.0%" 
+                                      FontSize="24" FontWeight="Bold" 
+                                      Foreground="{StaticResource AccentBrush}" 
+                                      HorizontalAlignment="Center" Margin="0,10"/>
                                     </StackPanel>
                                 </Border>
 
                                 <!-- On-Time Delivery -->
                                 <Border BorderBrush="#BDC3C7" BorderThickness="1" 
-                                       Margin="5" Padding="15" Background="White">
+                           Margin="5" Padding="15" Background="White">
                                     <StackPanel>
-                                        <TextBlock Text="On-Time Delivery" FontSize="14" 
-                                                  Foreground="#7F8C8D" HorizontalAlignment="Center"/>
-                                        <TextBlock x:Name="txtOnTimeDelivery" Text="0.00%" 
-                                                  FontSize="24" FontWeight="Bold" 
-                                                  Foreground="{StaticResource SuccessBrush}" 
-                                                  HorizontalAlignment="Center" Margin="0,10"/>
+                                        <TextBlock Text="On-Time %" FontSize="14" 
+                                      Foreground="#7F8C8D" HorizontalAlignment="Center"/>
+                                        <TextBlock x:Name="txtOnTimeDelivery" Text="0.0%" 
+                                      FontSize="24" FontWeight="Bold" 
+                                      Foreground="{StaticResource AccentBrush}" 
+                                      HorizontalAlignment="Center" Margin="0,10"/>
                                     </StackPanel>
                                 </Border>
 
                                 <!-- Bottleneck -->
                                 <Border BorderBrush="#BDC3C7" BorderThickness="1" 
-                                       Margin="5" Padding="15" Background="White">
+                           Margin="5" Padding="15" Background="White">
                                     <StackPanel>
-                                        <TextBlock Text="Primary Bottleneck" FontSize="14" 
-                                                  Foreground="#7F8C8D" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Bottleneck" FontSize="14" 
+                                      Foreground="#7F8C8D" HorizontalAlignment="Center"/>
                                         <TextBlock x:Name="txtBottleneck" Text="N/A" 
-                                                  FontSize="18" FontWeight="Bold" 
-                                                  Foreground="{StaticResource DangerBrush}" 
-                                                  HorizontalAlignment="Center" Margin="0,10"
-                                                  TextWrapping="Wrap" TextAlignment="Center"/>
+                                      FontSize="20" FontWeight="Bold" 
+                                      Foreground="{StaticResource AccentBrush}" 
+                                      HorizontalAlignment="Center" Margin="0,10"/>
                                     </StackPanel>
                                 </Border>
+
                             </UniformGrid>
                         </GroupBox>
 
-                        <!-- Detailed Metrics -->
-                        <GroupBox Header="Detailed Metrics">
-                            <DataGrid x:Name="dgMetrics" AutoGenerateColumns="True" 
-                                     IsReadOnly="True" Height="300" Margin="5"/>
-                        </GroupBox>
-
-                        <!-- Charts Placeholder -->
-                        <GroupBox Header="Performance Charts">
+                        <!-- Gantt Chart Button -->
+                        <GroupBox Header="Visualization" Margin="0,10,0,0">
                             <StackPanel Margin="10">
-                                <TextBlock Text="Chart visualization area" 
-                                          FontSize="14" Foreground="#7F8C8D" 
-                                          HorizontalAlignment="Center" Margin="20"/>
-                                <TextBlock Text="(Charts can be added using LiveCharts or OxyPlot)" 
-                                          FontSize="12" Foreground="#95A5A6" 
-                                          HorizontalAlignment="Center"/>
+                                <Button x:Name="btnViewGanttChart"
+                            Content="📊 VIEW GANTT CHART"
+                            Click="TestGantt_Click"
+                            Background="#28A745"
+                            Foreground="White"
+                            FontSize="14"
+                            FontWeight="Bold"
+                            Padding="20,12"
+                            HorizontalAlignment="Center"
+                            Cursor="Hand"
+                            IsEnabled="True">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border Background="{TemplateBinding Background}"
+                                                    BorderThickness="0"
+                                                    CornerRadius="5"
+                                                    Padding="{TemplateBinding Padding}">
+                                                            <ContentPresenter HorizontalAlignment="Center" 
+                                                                VerticalAlignment="Center"/>
+                                                        </Border>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                            <Style.Triggers>
+                                                <Trigger Property="IsEnabled" Value="False">
+                                                    <Setter Property="Background" Value="#CCCCCC"/>
+                                                    <Setter Property="Foreground" Value="#666666"/>
+                                                </Trigger>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="#218838"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+
+                                <TextBlock Text="Run a simulation to view the timeline"
+                               FontSize="11"
+                               Foreground="#95A5A6"
+                               HorizontalAlignment="Center"
+                               Margin="0,5,0,0"/>
                             </StackPanel>
                         </GroupBox>
+
+                        <!-- Detailed Metrics (optional) -->
+                        <GroupBox Header="Detailed Metrics" Margin="0,10,0,0">
+                            <DataGrid x:Name="dgMetrics" 
+                         AutoGenerateColumns="True"
+                         IsReadOnly="True"
+                         Height="200"
+                         Margin="10"/>
+                        </GroupBox>
+
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
-
+            
             <!-- Configuration Tab -->
             <TabItem Header="Configuration">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">

@@ -4,6 +4,7 @@ using ManufacturingSimulation.Core.Models;
 using ManufacturingSimulation.Database;
 using ManufacturingSimulation.Database.Models;
 using ManufacturingSimulation.Database.Repositories;
+using Microsoft.Data.Sqlite;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -265,6 +266,86 @@ namespace ManufacturingSimulation.Bridge
         {
             return _repository.GetRunsForScenario(scenarioId);
         }
+
+        /// <summary>
+        /// Gets Gantt chart data for a specific simulation run
+        /// Uses Entity Framework to query SimulationEvents table
+        /// </summary>
+        public GanttViewData GetGanttChartData(int runId)
+        {
+            var ganttData = new GanttViewData
+            {
+                RunId = runId,
+                Tasks = new List<GanttViewTask>(),
+                UniqueMachines = new List<string>()
+            };
+
+            var run = _db.SimulationRuns.FirstOrDefault(r => r.RunId == runId);
+            if (run == null) return ganttData;
+
+            ganttData.SimulationDate = run.RunDate;
+
+            var events = _db.SimulationEvents
+                .Where(e => e.RunId == runId && e.PartId != null && e.MachineName != null)
+                .OrderBy(e => e.EventTime)
+                .ToList();
+
+            if (!events.Any()) return ganttData;
+
+            // Group by part and machine
+            var grouped = events
+                .GroupBy(e => new { e.PartId, e.MachineName })
+                .ToList();
+
+            double maxTime = 0;
+
+            foreach (var group in grouped)
+            {
+                var partEvents = group.OrderBy(e => e.EventTime).ToList();
+
+                // Find Setup pairs
+                for (int i = 0; i < partEvents.Count - 1; i++)
+                {
+                    if (partEvents[i].EventType == "Setup Start" &&
+                        partEvents[i + 1].EventType == "Setup Complete")
+                    {
+                        ganttData.Tasks.Add(new GanttViewTask
+                        {
+                            PartId = group.Key.PartId,
+                            MachineName = group.Key.MachineName,
+                            TaskType = "Setup",
+                            StartTime = partEvents[i].EventTime,
+                            EndTime = partEvents[i + 1].EventTime
+                        });
+                        maxTime = Math.Max(maxTime, partEvents[i + 1].EventTime);
+                    }
+                }
+
+                // Find Processing pairs
+                for (int i = 0; i < partEvents.Count - 1; i++)
+                {
+                    if (partEvents[i].EventType == "Start Processing" &&
+                        partEvents[i + 1].EventType == "End Processing")
+                    {
+                        ganttData.Tasks.Add(new GanttViewTask
+                        {
+                            PartId = group.Key.PartId,
+                            MachineName = group.Key.MachineName,
+                            TaskType = "Processing",
+                            StartTime = partEvents[i].EventTime,
+                            EndTime = partEvents[i + 1].EventTime
+                        });
+                        maxTime = Math.Max(maxTime, partEvents[i + 1].EventTime);
+                    }
+                }
+
+                if (!ganttData.UniqueMachines.Contains(group.Key.MachineName))
+                    ganttData.UniqueMachines.Add(group.Key.MachineName);
+            }
+
+            ganttData.Makespan = maxTime;
+            return ganttData;
+        }
     }
 
     #region Result Classes
@@ -306,6 +387,31 @@ namespace ManufacturingSimulation.Bridge
         public SimulationRunSummary BestThroughput { get; set; }
         public SimulationRunSummary BestFlowTime { get; set; }
         public SimulationRunSummary BestUtilization { get; set; }
+    }
+
+    /// <summary>
+    /// Gantt chart data for visualization - Renamed to avoid ALL conflicts
+    /// </summary>
+    public class GanttViewData
+    {
+        public int RunId { get; set; }
+        public DateTime SimulationDate { get; set; }
+        public List<GanttViewTask> Tasks { get; set; } = new List<GanttViewTask>();
+        public List<string> UniqueMachines { get; set; } = new List<string>();
+        public double Makespan { get; set; }
+    }
+
+    /// <summary>
+    /// Single task on Gantt chart - Renamed to avoid ALL conflicts
+    /// </summary>
+    public class GanttViewTask
+    {
+        public string PartId { get; set; }
+        public string MachineName { get; set; }
+        public double StartTime { get; set; }
+        public double EndTime { get; set; }
+        public string TaskType { get; set; } // "Setup" or "Processing"
+        public double Duration => EndTime - StartTime;
     }
 
     #endregion

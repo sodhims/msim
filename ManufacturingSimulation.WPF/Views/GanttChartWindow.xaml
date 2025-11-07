@@ -1,0 +1,187 @@
+<Window x:Class="ManufacturingSimulation.WPF.Views.GanttChartWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Gantt Chart - Production Schedule" 
+        Height="700" 
+        Width="1200"
+        WindowStartupLocation="CenterScreen"
+        Background="#F5F5F5">
+
+    <Window.Resources>
+        <!-- Color definitions for task types -->
+        <SolidColorBrush x:Key="SetupBrush" Color="#FF9800"/>
+        <SolidColorBrush x:Key="ProcessingBrush" Color="#4CAF50"/>
+        <SolidColorBrush x:Key="BreakdownBrush" Color="#F44336"/>
+        <SolidColorBrush x:Key="IdleBrush" Color="#E0E0E0"/>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" 
+                Background="#2C3E50" 
+                Padding="15">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Production Schedule - Gantt Chart" 
+                              FontSize="20" 
+                              FontWeight="Bold" 
+                              Foreground="White"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                        <TextBlock Text="Simulation Date: " 
+                                  FontSize="12" 
+                                  Foreground="#BDC3C7"/>
+                        <TextBlock x:Name="txtSimulationDate" 
+                                  Text="N/A" 
+                                  FontSize="12" 
+                                  Foreground="White" 
+                                  FontWeight="SemiBold"/>
+                        <TextBlock Text="  |  Makespan: " 
+                                  FontSize="12" 
+                                  Foreground="#BDC3C7" 
+                                  Margin="10,0,0,0"/>
+                        <TextBlock x:Name="txtMakespan" 
+                                  Text="0.0 min" 
+                                  FontSize="12" 
+                                  Foreground="White" 
+                                  FontWeight="SemiBold"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <Button Grid.Column="1" 
+                        Content="✕ Close" 
+                        Click="CloseButton_Click"
+                        Background="#E74C3C"
+                        Foreground="White"
+                        Padding="15,8"
+                        BorderThickness="0"
+                        Cursor="Hand">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#C0392B"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- Legend -->
+        <Border Grid.Row="1" 
+                Background="White" 
+                BorderBrush="#DDDDDD" 
+                BorderThickness="0,0,0,1" 
+                Padding="15,10">
+            <StackPanel Orientation="Horizontal" 
+                       HorizontalAlignment="Center">
+                <TextBlock Text="Legend:" 
+                          FontWeight="Bold" 
+                          Margin="0,0,15,0" 
+                          VerticalAlignment="Center"/>
+
+                <!-- Setup -->
+                <Border Width="20" 
+                       Height="20" 
+                       Background="{StaticResource SetupBrush}" 
+                       Margin="5,0"/>
+                <TextBlock Text="Setup" 
+                          Margin="0,0,20,0" 
+                          VerticalAlignment="Center"/>
+
+                <!-- Processing -->
+                <Border Width="20" 
+                       Height="20" 
+                       Background="{StaticResource ProcessingBrush}" 
+                       Margin="5,0"/>
+                <TextBlock Text="Processing" 
+                          Margin="0,0,20,0" 
+                          VerticalAlignment="Center"/>
+
+                <!-- Breakdown -->
+                <Border Width="20" 
+                       Height="20" 
+                       Background="{StaticResource BreakdownBrush}" 
+                       Margin="5,0"/>
+                <TextBlock Text="Breakdown" 
+                          Margin="0,0,20,0" 
+                          VerticalAlignment="Center"/>
+
+                <!-- Idle -->
+                <Border Width="20" 
+                       Height="20" 
+                       Background="{StaticResource IdleBrush}" 
+                       Margin="5,0"/>
+                <TextBlock Text="Idle" 
+                          VerticalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Gantt Chart Canvas -->
+        <Border Grid.Row="2" 
+                Background="White" 
+                BorderBrush="#DDDDDD"
+                BorderThickness="1"
+                Margin="5">
+            <ScrollViewer x:Name="ChartScrollViewer"
+                         HorizontalScrollBarVisibility="Auto"
+                         VerticalScrollBarVisibility="Auto"
+                         Background="White">
+                <Canvas x:Name="GanttCanvas"
+                       Background="White"
+                       Width="1200"
+                       Height="600"/>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Status Bar -->
+        <Border Grid.Row="3"
+                Background="#F0F0F0"
+                BorderBrush="#CCCCCC"
+                BorderThickness="0,1,0,0"
+                Padding="10,6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Hover Info -->
+                <TextBlock x:Name="HoverInfoText"
+                          Grid.Column="0"
+                          Text="Hover over tasks for details"
+                          FontSize="12"
+                          Foreground="#666666"
+                          VerticalAlignment="Center"/>
+
+                <!-- Task Count -->
+                <StackPanel Grid.Column="1" 
+                           Orientation="Horizontal"
+                           VerticalAlignment="Center">
+                    <TextBlock x:Name="TaskCountText"
+                              Text="Tasks: 0"
+                              FontSize="11"
+                              Foreground="#888888"
+                              Margin="0,0,10,0"/>
+                    <TextBlock x:Name="MachineCountText"
+                              Text="Machines: 0"
+                              FontSize="11"
+                              Foreground="#888888"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
