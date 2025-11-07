@@ -48,6 +48,52 @@
                     </StackPanel>
                     <TextBlock x:Name="txtRunInfo" FontSize="14" Foreground="White" Margin="0,5,0,0"/>
                     <TextBlock x:Name="txtPartsSimulated" FontSize="12" Foreground="#BDC3C7" Margin="0,2,0,5"/>
+                    <!-- KPIs Row -->
+                    <Grid Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Throughput -->
+                        <StackPanel Grid.Column="0" Margin="0,0,20,0">
+                            <TextBlock Text="Throughput" FontSize="10" Foreground="#95A5A6"/>
+                            <TextBlock x:Name="txtThroughput" Text="0.00 parts/hr" 
+                               FontSize="14" FontWeight="Bold" Foreground="#3498DB"/>
+                        </StackPanel>
+
+                        <!-- Avg Flow Time -->
+                        <StackPanel Grid.Column="1" Margin="0,0,20,0">
+                            <TextBlock Text="Avg Flow Time" FontSize="10" Foreground="#95A5A6"/>
+                            <TextBlock x:Name="txtAvgFlowTime" Text="0.0 hrs" 
+                               FontSize="14" FontWeight="Bold" Foreground="#E67E22"/>
+                        </StackPanel>
+
+                        <!-- Avg WIP -->
+                        <StackPanel Grid.Column="2" Margin="0,0,20,0">
+                            <TextBlock Text="Avg WIP" FontSize="10" Foreground="#95A5A6"/>
+                            <TextBlock x:Name="txtAvgWIP" Text="0.0 parts" 
+                               FontSize="14" FontWeight="Bold" Foreground="#9B59B6"/>
+                        </StackPanel>
+
+                        <!-- Utilization -->
+                        <StackPanel Grid.Column="3" Margin="0,0,20,0">
+                            <TextBlock Text="Utilization" FontSize="10" Foreground="#95A5A6"/>
+                            <TextBlock x:Name="txtUtilization" Text="0.0%" 
+                               FontSize="14" FontWeight="Bold" Foreground="#2ECC71"/>
+                        </StackPanel>
+
+                        <!-- Makespan -->
+                        <StackPanel Grid.Column="4">
+                            <TextBlock Text="Makespan" FontSize="10" Foreground="#95A5A6"/>
+                            <TextBlock x:Name="txtMakespan" Text="0.0 min" 
+                               FontSize="14" FontWeight="Bold" Foreground="#E74C3C"/>
+                        </StackPanel>
+                    </Grid>
+
                     <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
                         <TextBlock Text="Simulation Date: " 
                                   FontSize="12" 
@@ -61,11 +107,6 @@
                                   FontSize="12" 
                                   Foreground="#BDC3C7" 
                                   Margin="10,0,0,0"/>
-                        <TextBlock x:Name="txtMakespan" 
-                                  Text="0.0 min" 
-                                  FontSize="12" 
-                                  Foreground="White" 
-                                  FontWeight="SemiBold"/>
                     </StackPanel>
                 </StackPanel>
 

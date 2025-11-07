@@ -1,8 +1,9 @@
+using ManufacturingSimulation.Bridge;
+using ManufacturingSimulation.Database;
 using ManufacturingSimulation.Database;
 using ManufacturingSimulation.WPF.ViewModels;
 using System.Windows;
 using System.Windows.Controls;
-using ManufacturingSimulation.Database;
 
 namespace ManufacturingSimulation.WPF.Views
 {
@@ -32,6 +33,8 @@ namespace ManufacturingSimulation.WPF.Views
             _viewModel.TaskCountChanged += (count) => TaskCountText.Text = $"Tasks: {count}";
             _viewModel.MachineCountChanged += (count) => MachineCountText.Text = $"Machines: {count}";
             _viewModel.HoverInfoChanged += (info) => HoverInfoText.Text = info;
+            _viewModel.KPIsChanged += UpdateKPIs;
+
 
 
             // Load the Gantt chart data when window loads
@@ -101,5 +104,14 @@ namespace ManufacturingSimulation.WPF.Views
                 _viewModel.LoadGanttData();
             }
         }
+        private void UpdateKPIs(SimulationRunSummary summary)
+        {
+            txtThroughput.Text = $"{summary.Result?.Throughput:F2} parts/hr";
+            txtAvgFlowTime.Text = $"{summary.Result?.AvgFlowTimeHours:F2} hrs";
+            txtAvgWIP.Text = $"{summary.Result?.AvgWip:F1} parts";
+            txtUtilization.Text = $"{summary.Result?.OverallUtilizationPercent:F1}%";
+            // Makespan already updated separately
+        }
+
     }
 }

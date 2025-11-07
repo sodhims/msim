@@ -33,6 +33,7 @@ namespace ManufacturingSimulation.WPF.ViewModels
         public event Action<string> HoverInfoChanged;
         public event Action<string> RunInfoChanged;           // ADD THIS
         public event Action<string> PartsSimulatedChanged;    // ADD THIS
+        public event Action<SimulationRunSummary> KPIsChanged;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -79,7 +80,11 @@ namespace ManufacturingSimulation.WPF.ViewModels
             MakespanChanged?.Invoke($"{ganttData.Makespan:F2} min");
             TaskCountChanged?.Invoke(ganttData.Tasks.Count);
             MachineCountChanged?.Invoke(ganttData.UniqueMachines?.Count ?? 0);
-
+            var summary = _simulationService.GetRunSummary(_runId);
+            if (summary != null)
+            {
+                KPIsChanged?.Invoke(summary);
+            }
             DrawGanttChart(ganttData);
         }
 
