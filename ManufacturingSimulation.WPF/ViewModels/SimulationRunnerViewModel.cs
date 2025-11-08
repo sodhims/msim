@@ -229,6 +229,10 @@ namespace ManufacturingSimulation.WPF.ViewModels
                 }
             }
             AvailableOrders.Clear();
+            OnPropertyChanged(nameof(CanRun));  // ADD THIS LINE
+            StatusMessage = $"Added all orders - Total: {SelectedOrders.Count}";  // ADD THIS LINE TOO
+
+
         }
 
         private void RemoveSelectedOrders()

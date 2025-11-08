@@ -1,9 +1,11 @@
 using ManufacturingSimulation.Bridge;
+using ManufacturingSimulation.Bridge;
 using ManufacturingSimulation.Core;
 using ManufacturingSimulation.Core.Configuration;
 using ManufacturingSimulation.Core.Engine;
 using ManufacturingSimulation.Core.Engine.Events;
 using ManufacturingSimulation.Core.Models;
+using ManufacturingSimulation.Database;
 using ManufacturingSimulation.Database;
 using ManufacturingSimulation.Database;
 using ManufacturingSimulation.Database.Models;
@@ -13,8 +15,11 @@ using ManufacturingSimulation.WPF.ViewModels;
 using ManufacturingSimulation.WPF.ViewModels.Admin;
 using ManufacturingSimulation.WPF.Views;
 using ManufacturingSimulation.WPF.Views;
+using ManufacturingSimulation.WPF.Views;
 using ManufacturingSimulation.WPF.Views.Admin;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.VisualBasic;
 using Microsoft.Win32;
 using System;
 using System.Collections.Generic;  // ← ADDED
@@ -30,11 +35,7 @@ using CoreMachine = ManufacturingSimulation.Core.Models.Machine;
 using CoreSimEvent = ManufacturingSimulation.Core.Engine.SimulationEvent;  // ← Correct
 using DbMachine = ManufacturingSimulation.Database.Models.Machine;
 using DbSimEvent = ManufacturingSimulation.Database.Models.SimulationEvent;  // ← Correct
-using ManufacturingSimulation.WPF.Views;
-using ManufacturingSimulation.Database;
-using ManufacturingSimulation.Bridge;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.VisualBasic;
+
 
 namespace ManufacturingSimulation.WPF
 {
@@ -145,16 +146,32 @@ namespace ManufacturingSimulation.WPF
                 var logger = new Bridge.SimulationEventLogger(_currentRunId, new MesDbContext());
                 _engine.SetEventLogger(logger);
 
-                // Load machines from database
+                // Load machines from database (with parallel machine support)
                 int machineCount = 0;
-                using (var db = new MesDbContext())
+                using (var dbMachines = new MesDbContext())
                 {
-                    var workCenters = db.WorkCenters.Where(wc => wc.IsActive == true).OrderBy(wc => wc.WorkCenterId).ToList();
+                    var workCenters = dbMachines.WorkCenters
+                        .Where(wc => wc.IsActive == true)
+                        .OrderBy(wc => wc.WorkCenterId)
+                        .ToList();
+
                     foreach (var wc in workCenters)
                     {
-                        var machine = new CoreMachine(wc.WorkCenterId, wc.WorkCenterName, null);
-                        _engine.AddMachine(machine, 10);
-                        machineCount++;
+                        int quantity = wc.Quantity ?? 1;
+
+                        for (int i = 0; i < quantity; i++)
+                        {
+                            string machineName = quantity > 1
+                                ? $"{wc.WorkCenterName}-{i + 1}"
+                                : wc.WorkCenterName;
+
+                            int machineId = wc.WorkCenterId + (i * 10000);
+
+                            var machine = new CoreMachine(machineId, machineName, new ManufacturingSimulation.Core.Engine.Rules.FIFORule());
+                            _engine.AddMachine(machine, wc.BufferCapacity ?? 10);
+                            LogEvent($"Created machine: {machineName} (ID: {machineId})");
+                            machineCount++;
+                        }
                     }
                 }
 
@@ -170,11 +187,11 @@ namespace ManufacturingSimulation.WPF
                 double currentArrivalTime = 0;
                 var mapper = new MesToSimulationMapper(_config.RandomSeed);
 
-                using (var db = new MesDbContext())
+                using (var dbOrders = new MesDbContext())
                 {
                     foreach (var order in _selectedOrders)
                     {
-                        var fullOrder = db.ProductionOrders
+                        var fullOrder = dbOrders.ProductionOrders
                             .Include(o => o.Product)
                                 .ThenInclude(p => p.Routings)
                                     .ThenInclude(r => r.WorkCenter)
@@ -479,7 +496,44 @@ namespace ManufacturingSimulation.WPF
         private void BtnSaveConfig_Click(object sender, RoutedEventArgs e) => SaveConfigurationToFile();
         private void BtnLoadFromDb_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("Database integration not implemented.", "Info", MessageBoxButton.OK);
+            try
+            {
+                using (var db = new MesDbContext())
+                {
+                    var workCenters = db.WorkCenters
+                        .Where(wc => wc.IsActive == true)
+                        .OrderBy(wc => wc.WorkCenterId)
+                        .ToList();
+
+                    _config.Machines.Clear();
+
+                    foreach (var wc in workCenters)
+                    {
+                        _config.Machines.Add(new MachineConfiguration
+                        {
+                            Id = wc.WorkCenterId,
+                            Name = wc.WorkCenterName,
+                            BufferCapacity = wc.BufferCapacity ?? 10,
+                            DispatchingRule = "FIFO",
+                            Quantity = wc.Quantity ?? 1
+                        });
+                    }
+
+                    // UPDATE THE JSON DISPLAY
+                    txtConfigEditor.Text = JsonSerializer.Serialize(_config,
+                        new JsonSerializerOptions { WriteIndented = true });
+
+                    UpdateStatus($"Loaded {workCenters.Count} work centers from database");
+                    LogEvent($"Loaded {workCenters.Count} work centers from database");
+                    MessageBox.Show($"Loaded {workCenters.Count} work centers", "Success",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading from database: {ex.Message}", "Error",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
         private void BtnSaveToDb_Click(object sender, RoutedEventArgs e)
         {
